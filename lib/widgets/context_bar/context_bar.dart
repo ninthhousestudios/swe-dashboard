@@ -1,0 +1,496 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/context_provider.dart';
+import '../../core/jd_utils.dart';
+import '../../core/swe_service.dart';
+import 'origin_selector.dart';
+import 'zodiac_ref_selector.dart';
+import 'eq_ref_selector.dart';
+import 'ayanamsa_selector.dart';
+import 'ephe_source_selector.dart';
+
+/// Persistent top bar with shared global calculation context.
+///
+/// Two-panel grid layout:
+///   Left — Time & Place
+///     Row 1: Date | Time | UTC | JD  [now]
+///     Row 2: Lat  | Lon  | Alt | City
+///   Right — Options (3-col grid via LabeledDropdown)
+class ContextBar extends ConsumerStatefulWidget {
+  const ContextBar({super.key});
+
+  @override
+  ConsumerState<ContextBar> createState() => _ContextBarState();
+}
+
+class _ContextBarState extends ConsumerState<ContextBar> {
+  // Controllers and focus nodes for all text fields
+  final _date = TextEditingController();
+  final _time = TextEditingController();
+  final _utc = TextEditingController();
+  final _jd = TextEditingController();
+  final _lat = TextEditingController();
+  final _lon = TextEditingController();
+  final _alt = TextEditingController();
+  final _city = TextEditingController();
+
+  late final _dateFocus = _focusWithCommit(_commitDate);
+  late final _timeFocus = _focusWithCommit(_commitTime);
+  late final _utcFocus = _focusWithCommit(_commitUtc);
+  late final _jdFocus = _focusWithCommit(_commitJd);
+  late final _latFocus = _focusWithCommit(_commitLocation);
+  late final _lonFocus = _focusWithCommit(_commitLocation);
+  late final _altFocus = _focusWithCommit(_commitLocation);
+  late final _cityFocus = _focusWithCommit(_commitLocation);
+
+  /// Create a FocusNode that commits on focus loss.
+  FocusNode _focusWithCommit(VoidCallback commit) {
+    final node = FocusNode();
+    node.addListener(() {
+      if (!node.hasFocus) commit();
+    });
+    return node;
+  }
+
+  @override
+  void dispose() {
+    _date.dispose();
+    _time.dispose();
+    _utc.dispose();
+    _jd.dispose();
+    _lat.dispose();
+    _lon.dispose();
+    _alt.dispose();
+    _city.dispose();
+    _dateFocus.dispose();
+    _timeFocus.dispose();
+    _utcFocus.dispose();
+    _jdFocus.dispose();
+    _latFocus.dispose();
+    _lonFocus.dispose();
+    _altFocus.dispose();
+    _cityFocus.dispose();
+    super.dispose();
+  }
+
+  JdUtils get _jdUtils => JdUtils(ref.read(sweProvider));
+
+  /// Sync controller text from state, but skip any field that has focus
+  /// (the user is actively editing it).
+  void _sync() {
+    final ctx = ref.read(contextBarProvider);
+    final local = _jdUtils.applyUtcOffset(ctx.dateTime, ctx.utcOffset);
+    if (!_dateFocus.hasFocus) {
+      _date.text = '${_p(local.year, 4)}-${_p(local.month, 2)}-${_p(local.day, 2)}';
+    }
+    if (!_timeFocus.hasFocus) {
+      _time.text = '${_p(local.hour, 2)}:${_p(local.minute, 2)}:${_p(local.second, 2)}';
+    }
+    if (!_utcFocus.hasFocus) {
+      _utc.text = _fmtOffset(ctx.utcOffset);
+    }
+    if (!_jdFocus.hasFocus) {
+      _jd.text = ctx.jdUt.toStringAsFixed(6);
+    }
+    if (!_latFocus.hasFocus) {
+      _lat.text = _fmtCoord(ctx.latitude);
+    }
+    if (!_lonFocus.hasFocus) {
+      _lon.text = _fmtCoord(ctx.longitude);
+    }
+    if (!_altFocus.hasFocus) {
+      _alt.text = ctx.altitude.round().toString();
+    }
+    if (!_cityFocus.hasFocus) {
+      _city.text = ctx.cityLabel;
+    }
+  }
+
+  String _p(int v, int w) => v.toString().padLeft(w, '0');
+
+  String _fmtOffset(double offset) {
+    final sign = offset >= 0 ? '+' : '-';
+    final abs = offset.abs();
+    final h = abs.truncate();
+    final m = ((abs - h) * 60).round();
+    return '$sign${_p(h, 2)}:${_p(m, 2)}';
+  }
+
+  /// Format a coordinate: show up to 4 decimals, but strip trailing zeros.
+  /// 0.0 → "0", 51.5074 → "51.5074", 10.5000 → "10.5"
+  String _fmtCoord(double v) {
+    final s = v.toStringAsFixed(4);
+    if (!s.contains('.')) return s;
+    var trimmed = s.replaceAll(RegExp(r'0+$'), '');
+    if (trimmed.endsWith('.')) trimmed = trimmed.substring(0, trimmed.length - 1);
+    return trimmed;
+  }
+
+  void _commitDate() {
+    final parts = _date.text.split('-');
+    if (parts.length != 3) return;
+    final y = int.tryParse(parts[0]);
+    final mo = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y == null || mo == null || d == null) return;
+    final ctx = ref.read(contextBarProvider);
+    final oldDt = ctx.dateTime;
+    final newDt = DateTime.utc(y, mo, d, oldDt.hour, oldDt.minute, oldDt.second);
+    final ut = _jdUtils.removeUtcOffset(newDt, ctx.utcOffset);
+    _selfUpdate = true;
+    ref.read(contextBarProvider.notifier).setDateTime(ut);
+  }
+
+  void _commitTime() {
+    final parts = _time.text.split(':');
+    if (parts.length < 2) return;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final s = parts.length > 2 ? int.tryParse(parts[2]) : 0;
+    if (h == null || m == null) return;
+    final ctx = ref.read(contextBarProvider);
+    final local = _jdUtils.applyUtcOffset(ctx.dateTime, ctx.utcOffset);
+    final newLocal = DateTime.utc(local.year, local.month, local.day, h, m, s ?? 0);
+    final ut = _jdUtils.removeUtcOffset(newLocal, ctx.utcOffset);
+    _selfUpdate = true;
+    ref.read(contextBarProvider.notifier).setDateTime(ut);
+  }
+
+  void _commitUtc() {
+    final text = _utc.text.trim();
+    if (text.isEmpty) return;
+    final sign = text.startsWith('-') ? -1.0 : 1.0;
+    final stripped = text.replaceAll(RegExp(r'^[+-]'), '');
+    final parts = stripped.split(':');
+    final h = int.tryParse(parts[0]) ?? 0;
+    final m = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    _selfUpdate = true;
+    ref.read(contextBarProvider.notifier).setUtcOffset(sign * (h + m / 60.0));
+  }
+
+  void _commitJd() {
+    final jd = double.tryParse(_jd.text);
+    if (jd == null) return;
+    _selfUpdate = true;
+    ref.read(contextBarProvider.notifier).setJd(jd);
+  }
+
+  void _commitLocation() {
+    _selfUpdate = true;
+    ref.read(contextBarProvider.notifier).setLocation(
+      latitude: double.tryParse(_lat.text) ?? 0,
+      longitude: double.tryParse(_lon.text) ?? 0,
+      altitude: double.tryParse(_alt.text) ?? 0,
+      cityLabel: _city.text,
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final ctx = ref.read(contextBarProvider);
+    final local = _jdUtils.applyUtcOffset(ctx.dateTime, ctx.utcOffset);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: local,
+      firstDate: DateTime(-4000),
+      lastDate: DateTime(4000),
+    );
+    if (picked == null) return;
+    final newLocal = DateTime.utc(
+      picked.year, picked.month, picked.day,
+      local.hour, local.minute, local.second,
+    );
+    ref.read(contextBarProvider.notifier)
+        .setDateTime(_jdUtils.removeUtcOffset(newLocal, ctx.utcOffset));
+  }
+
+  Future<void> _pickTime() async {
+    final ctx = ref.read(contextBarProvider);
+    final local = _jdUtils.applyUtcOffset(ctx.dateTime, ctx.utcOffset);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: local.hour, minute: local.minute),
+    );
+    if (picked == null) return;
+    final newLocal = DateTime.utc(
+      local.year, local.month, local.day,
+      picked.hour, picked.minute, local.second,
+    );
+    ref.read(contextBarProvider.notifier)
+        .setDateTime(_jdUtils.removeUtcOffset(newLocal, ctx.utcOffset));
+  }
+
+  /// Half-hour UTC offset options from -12:00 to +12:00.
+  static final _utcOffsets = [
+    for (int h = -12; h <= 12; h++)
+      for (final m in [0, 30])
+        if (h != 12 || m == 0) h + m / 60.0,
+  ];
+
+  String _offsetLabel(double offset) => _fmtOffset(offset);
+
+  /// Combo field: editable text + dropdown of half-hour offsets.
+  Widget _utcOffsetField() {
+    return Row(
+      children: [
+        Text('UTC Offset ', style: _labelStyle),
+        Expanded(
+          child: TextField(
+            controller: _utc,
+            focusNode: _utcFocus,
+            style: _fieldStyle,
+            decoration: _deco('+00:00'),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d:+-]'))],
+            onSubmitted: (_) => _commitUtc(),
+            onEditingComplete: _commitUtc,
+          ),
+        ),
+        PopupMenuButton<double>(
+          icon: const Icon(Icons.arrow_drop_down, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+          tooltip: 'Select UTC offset',
+          itemBuilder: (_) => _utcOffsets.map((o) => PopupMenuItem(
+                value: o,
+                height: 32,
+                child: Text(_offsetLabel(o), style: _fieldStyle),
+              )).toList(),
+          onSelected: (offset) {
+            ref.read(contextBarProvider.notifier).setUtcOffset(offset);
+          },
+        ),
+      ],
+    );
+  }
+
+  // --- Build helpers ---
+
+  static const _colGap = 12.0;
+  static const _rowGap = 6.0;
+
+  TextStyle? get _labelStyle => Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      );
+
+  TextStyle? get _fieldStyle => Theme.of(context).textTheme.bodySmall;
+
+  InputDecoration _deco(String hint) => InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        hintText: hint,
+        border: const OutlineInputBorder(),
+      );
+
+  /// A labeled text field: [64px label] [expanding field] [optional icon]
+  Widget _labeled(
+    String label,
+    TextEditingController controller,
+    FocusNode focusNode, {
+    required String hint,
+    required VoidCallback onCommit,
+    List<TextInputFormatter>? formatters,
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Text('$label ', style: _labelStyle),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            style: _fieldStyle,
+            decoration: _deco(hint),
+            inputFormatters: formatters,
+            onSubmitted: (_) => onCommit(),
+            onEditingComplete: onCommit,
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+
+  Widget _iconBtn(IconData icon, String tooltip, VoidCallback onPressed) {
+    return IconButton(
+      icon: Icon(icon, size: 14),
+      padding: const EdgeInsets.only(left: 4),
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
+  }
+
+  /// Track whether the last provider change came from our own commit methods
+  /// so we can skip syncing (the controllers already have the right text).
+  bool _selfUpdate = false;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(contextBarProvider, (_, _) {
+      if (_selfUpdate) {
+        _selfUpdate = false;
+        return;
+      }
+      _sync();
+    });
+    // Initial sync on first build.
+    if (_date.text.isEmpty) _sync();
+
+    final sectionLabel = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        );
+
+    final numFmt = FilteringTextInputFormatter.allow(RegExp(r'[\d.+-]'));
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    // Minimum width the context bar needs to avoid overflow.
+    // At 200% zoom, textScaler is 2.0 but the screen pixels stay the same,
+    // so we ensure the bar is at least as wide as the unscaled layout.
+    final minBarWidth = 1000.0 * MediaQuery.textScalerOf(context).scale(1.0);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: SizedBox(
+          width: minBarWidth.clamp(screenWidth - 32, double.infinity),
+          child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Left: Time & Place ──
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('TIME & PLACE', style: sectionLabel),
+                  SizedBox(height: _rowGap),
+                  // Row 1: Date | Time | UTC | JD [now]
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _labeled('Date', _date, _dateFocus,
+                            hint: 'YYYY-MM-DD',
+                            onCommit: _commitDate,
+                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d-]'))],
+                            trailing: _iconBtn(Icons.calendar_today, 'Pick date', _pickDate)),
+                      ),
+                      SizedBox(width: _colGap),
+                      Expanded(
+                        child: _labeled('Time', _time, _timeFocus,
+                            hint: 'HH:MM:SS',
+                            onCommit: _commitTime,
+                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d:]'))],
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _iconBtn(Icons.schedule, 'Set to now', () {
+                                  final now = DateTime.now();
+                                  _time.text = '${_p(now.hour, 2)}:${_p(now.minute, 2)}:${_p(now.second, 2)}';
+                                  _commitTime();
+                                }),
+                                _iconBtn(Icons.access_time, 'Pick time', _pickTime),
+                              ],
+                            )),
+                      ),
+                      SizedBox(width: _colGap),
+                      Expanded(
+                        child: _utcOffsetField(),
+                      ),
+                      SizedBox(width: _colGap),
+                      Expanded(
+                        child: _labeled('JD (UT)', _jd, _jdFocus,
+                            hint: '2460000.0',
+                            onCommit: _commitJd,
+                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+                            trailing: _iconBtn(Icons.update, 'Set to now',
+                                () => ref.read(contextBarProvider.notifier).setNow())),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: _rowGap),
+                  // Row 2: Lat | Lon | Alt | City
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _labeled('Lat', _lat, _latFocus,
+                            hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+                      ),
+                      SizedBox(width: _colGap),
+                      Expanded(
+                        child: _labeled('Lon', _lon, _lonFocus,
+                            hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+                      ),
+                      SizedBox(width: _colGap),
+                      Expanded(
+                        child: _labeled('Alt', _alt, _altFocus,
+                            hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+                      ),
+                      SizedBox(width: _colGap),
+                      Expanded(
+                        child: _labeled('City', _city, _cityFocus,
+                            hint: 'City', onCommit: _commitLocation),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // ── Divider ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: Theme.of(context).dividerColor,
+              ),
+            ),
+            // ── Right: Options ──
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('OPTIONS', style: sectionLabel),
+                  SizedBox(height: _rowGap),
+                  // Row 1: Origin | Zodiac | Eq. Ref
+                  const Row(
+                    children: [
+                      Expanded(child: OriginSelector()),
+                      SizedBox(width: _colGap),
+                      Expanded(child: ZodiacRefSelector()),
+                      SizedBox(width: _colGap),
+                      Expanded(child: EqRefSelector()),
+                    ],
+                  ),
+                  SizedBox(height: _rowGap),
+                  // Row 2: Ayanamsa | Ephe | (empty)
+                  const Row(
+                    children: [
+                      Expanded(child: AyanamsaSelector()),
+                      SizedBox(width: _colGap),
+                      Expanded(child: EpheSourceSelector()),
+                      SizedBox(width: _colGap),
+                      Expanded(child: SizedBox.shrink()),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      ),
+      ),
+    );
+  }
+}

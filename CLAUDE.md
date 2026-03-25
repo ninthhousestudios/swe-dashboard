@@ -1,0 +1,70 @@
+# SWE Dashboard — Project Guidelines
+
+## What This Is
+
+Flutter cross-platform GUI for the Swiss Ephemeris via [swisseph.dart](https://pub.dev/packages/swisseph) 0.2.0. Pure astronomical values, no interpretation. Riverpod for state management (StateNotifier, no codegen).
+
+## Project Structure
+
+```
+lib/
+  main.dart, app.dart              # Entry point, MaterialApp
+  core/                            # Shared state & services
+    swe_service.dart               #   sweProvider (SwissEph.find())
+    context_state.dart             #   Immutable ContextBarState
+    context_provider.dart          #   ContextBarNotifier (JD/DateTime/location)
+    calc_context.dart              #   EffectiveContext (merges context + flags)
+    calc_trigger.dart              #   Calculate button trigger
+    flag_definitions.dart          #   FlagDef, FlagGroup, auto-managed flags
+    flag_state.dart, flag_provider #   FlagBarState/Notifier
+    display_format.dart            #   DMS/Decimal/Raw formatters
+    jd_utils.dart                  #   JD <-> DateTime conversion
+  layout/                          # Shell, tabs, responsive breakpoints
+  tabs/                            # Per-tab UI + providers (planets, houses, ayanamsa)
+  widgets/                         # Reusable widgets (context_bar, flag_bar, result_card)
+  chart_formats/                   # File format parsers (.chtk, .jhd, .aaf, etc.)
+  theme/                           # Dark/light/cosmic/forest themes
+test/goldens/                      # Golden image tests (54 PNGs)
+```
+
+## Architecture: Zoom & Responsive Scaling
+
+This app supports browser-style zoom via `MediaQuery.textScalerOf`. All UI must remain functional across zoom levels. These rules are non-negotiable:
+
+### Cards and Grids
+- Use `Wrap` + `SingleChildScrollView`, never `GridView` with fixed aspect ratios
+- Compute card width from `LayoutBuilder` constraints; let cards size to intrinsic content height
+- Fixed aspect ratios break at fractional scale factors due to sub-pixel rounding
+
+### Labels and Text
+- Use plain `Text` widgets with intrinsic width — never `SizedBox(width: N)` for labels
+- If a fixed width is truly unavoidable, floor it: `(N * scale).floorToDouble()`
+
+### Scale Factor Access
+- Use `MediaQuery.textScalerOf(context).scale(1.0)` for the current multiplier
+- Tab bar heights must be computed in the parent's `build()` via `PreferredSize` wrapper (not in the `preferredSize` getter, which has no `BuildContext`)
+
+### Overflow Prevention
+- Wrap dense horizontal bars (e.g. context bar, chip selector rows) in `SingleChildScrollView(scrollDirection: Axis.horizontal)` with a min width for extreme zoom
+- Prefer `Flexible`/`Expanded` over fixed-width `SizedBox` inside `Row` widgets
+- `ClipRect` does **not** suppress sub-pixel overflow errors — fix the sizing instead
+
+## Key Architecture Decisions
+
+1. **Explicit Calculate button** — calculations run on demand, not on every state change
+2. **EffectiveContext** merges global context + flags + per-card overrides; C globals are set atomically at calculation time
+3. **Auto-managed flags** — sidereal, topocentric, helio, bary, ephe source flags are locked by the context bar (shown as disabled chips with lock icon)
+4. **Flag bar uses `ref.listen`** (not `ref.watch` in notifier) for auto-linking to avoid infinite loops
+5. **swisseph from pub.dev** — not a local path dependency
+
+## Running
+
+```bash
+flutter run -d linux    # or macos, windows, chrome
+flutter test test/goldens/ --update-goldens   # regenerate golden images
+flutter test test/goldens/                    # compare against baselines
+```
+
+## Golden Tests
+
+54 golden PNGs across 3 sizes (400x800 mobile, 800x1024 tablet, 1400x900 desktop) x 2 themes (light, dark). ContextBar and AppShell use `allowOverflow: true` because the context bar is intentionally wider than 400px mobile (it horizontal-scrolls).
