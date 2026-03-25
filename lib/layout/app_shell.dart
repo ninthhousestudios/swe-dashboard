@@ -4,7 +4,12 @@ import 'tab_definitions.dart';
 import 'responsive_layout.dart';
 import '../theme/theme_provider.dart';
 import '../widgets/context_bar/context_bar.dart';
+import '../core/context_provider.dart';
+import '../core/display_format.dart';
+import '../widgets/export_button.dart';
 import '../widgets/flag_bar/flag_bar.dart';
+import '../tabs/houses/houses_provider.dart';
+import '../tabs/planets/planets_provider.dart';
 import '../tabs/planets/planets_tab.dart';
 import '../tabs/houses/houses_tab.dart';
 import '../tabs/ayanamsa/ayanamsa_tab.dart';
@@ -106,7 +111,10 @@ class _AppShellState extends ConsumerState<AppShell> with TickerProviderStateMix
           // Context bar
           const ContextBar(),
           // Flag bar (shown only for tabs with flags)
-          if (selectedTab.hasFlags) const FlagBar(),
+          if (selectedTab.hasFlags)
+            FlagBar(
+              trailing: _buildFlagBarTrailing(selectedTab),
+            ),
           // Tab content
           Expanded(
             child: _TabContent(tab: selectedTab),
@@ -125,6 +133,79 @@ class _AppShellState extends ConsumerState<AppShell> with TickerProviderStateMix
             )
           : null,
     );
+  }
+
+  /// Format toggle + export button for tabs that use the flag bar.
+  Widget? _buildFlagBarTrailing(AppTab tab) {
+    final formatStyle = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: WidgetStatePropertyAll(
+          Theme.of(context).textTheme.labelSmall),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 4),
+      ),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
+    );
+
+    switch (tab) {
+      case AppTab.planets:
+        return Consumer(builder: (context, ref, _) {
+          final format = ref.watch(planetsFormatProvider);
+          final results = ref.watch(planetsResultsProvider);
+          final jd = ref.watch(contextBarProvider).jdUt;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<DisplayFormat>(
+                segments: DisplayFormat.values
+                    .map((f) => ButtonSegment(value: f, label: Text(f.label)))
+                    .toList(),
+                selected: {format},
+                onSelectionChanged: (s) =>
+                    ref.read(planetsFormatProvider.notifier).state = s.first,
+                style: formatStyle,
+              ),
+              const SizedBox(width: 8),
+              ExportButton(
+                hasResults: results.isNotEmpty,
+                getRows: () => planetsToExportRows(results, format),
+                filenameStem: 'swe_planets_${jd.toStringAsFixed(4)}',
+              ),
+            ],
+          );
+        });
+      case AppTab.houses:
+        return Consumer(builder: (context, ref, _) {
+          final format = ref.watch(housesFormatProvider);
+          final result = ref.watch(housesResultProvider);
+          final jd = ref.watch(contextBarProvider).jdUt;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<DisplayFormat>(
+                segments: DisplayFormat.values
+                    .map((f) => ButtonSegment(value: f, label: Text(f.label)))
+                    .toList(),
+                selected: {format},
+                onSelectionChanged: (s) =>
+                    ref.read(housesFormatProvider.notifier).state = s.first,
+                style: formatStyle,
+              ),
+              const SizedBox(width: 8),
+              ExportButton(
+                hasResults: result != null,
+                getRows: () => result != null
+                    ? housesToExportRows(result, format)
+                    : [],
+                filenameStem: 'swe_houses_${jd.toStringAsFixed(4)}',
+              ),
+            ],
+          );
+        });
+      default:
+        return null;
+    }
   }
 }
 

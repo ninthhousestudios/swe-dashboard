@@ -184,8 +184,6 @@ ResultCard fakeResultCard({
     title: title,
     subtitle: subtitle,
     flagHex: flagHex,
-    format: format,
-    onFormatChanged: showActions ? (_) {} : null,
     onPin: showActions ? () {} : null,
     fields: const [
       ResultField(label: 'Longitude', value: "4° 35' 00.00\"", rawValue: 4.583),

@@ -3,6 +3,8 @@ import 'package:swisseph/swisseph.dart';
 
 import '../../core/calc_context.dart';
 import '../../core/calc_trigger.dart';
+import '../../core/display_format.dart';
+import '../../core/export_service.dart';
 import '../../core/swe_service.dart';
 
 /// Result for a single planet calculation.
@@ -155,6 +157,21 @@ final planetsResultsProvider = Provider<List<PlanetResult>>((ref) {
 
   return results;
 });
+
+/// Convert planet results to export rows.
+List<ExportRow> planetsToExportRows(List<PlanetResult> results, DisplayFormat fmt) {
+  return results.map((r) => ExportRow(
+    header: r.bodyName,
+    fields: [
+      ('Longitude', formatAngle(r.longitude, fmt)),
+      ('Latitude', formatAngle(r.latitude, fmt)),
+      ('Distance', formatDistance(r.distance, fmt)),
+      ('Spd Lon', formatSpeed(r.speedLon, fmt)),
+      ('Spd Lat', formatSpeed(r.speedLat, fmt)),
+      ('Spd Dist', formatSpeed(r.speedDist, fmt)),
+    ],
+  )).toList();
+}
 
 String _safeGetName(SwissEph swe, int body) {
   try {

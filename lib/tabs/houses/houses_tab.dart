@@ -14,8 +14,6 @@ class HousesTab extends ConsumerStatefulWidget {
 }
 
 class _HousesTabState extends ConsumerState<HousesTab> {
-  DisplayFormat _format = DisplayFormat.dms;
-
   bool get _hasCalculated => ref.watch(calcTriggerProvider) > 0;
 
   @override
@@ -63,15 +61,6 @@ class _HousesTabState extends ConsumerState<HousesTab> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  SegmentedButton<DisplayFormat>(
-                    segments: DisplayFormat.values
-                        .map((f) => ButtonSegment(value: f, label: Text(f.label)))
-                        .toList(),
-                    selected: {_format},
-                    onSelectionChanged: (s) => setState(() => _format = s.first),
-                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                  ),
                 ],
               ),
             ),
@@ -93,6 +82,7 @@ class _HousesTabState extends ConsumerState<HousesTab> {
   }
 
   Widget _buildResults() {
+    final format = ref.watch(housesFormatProvider);
     final result = ref.watch(housesResultProvider);
 
     if (result == null) {
@@ -127,12 +117,10 @@ class _HousesTabState extends ConsumerState<HousesTab> {
                         title: 'Cusp $i',
                         subtitle: result.hsysName,
                         flagHex: null,
-                        format: _format,
-                        onFormatChanged: null,
                         fields: [
                           ResultField(
                             label: 'Longitude',
-                            value: formatAngle(result.cusps[i], _format),
+                            value: formatAngle(result.cusps[i], format),
                             rawValue: result.cusps[i],
                           ),
                         ],
@@ -144,14 +132,12 @@ class _HousesTabState extends ConsumerState<HousesTab> {
               ResultCard(
                 title: 'Angles',
                 subtitle: result.hsysName,
-                format: _format,
-                onFormatChanged: null,
                 fields: [
-                  ResultField(label: 'Asc', value: formatAngle(result.asc, _format), rawValue: result.asc),
-                  ResultField(label: 'MC', value: formatAngle(result.mc, _format), rawValue: result.mc),
-                  ResultField(label: 'ARMC', value: formatAngle(result.armc, _format), rawValue: result.armc),
-                  ResultField(label: 'Vertex', value: formatAngle(result.vertex, _format), rawValue: result.vertex),
-                  ResultField(label: 'Eq Asc', value: formatAngle(result.equatorialAsc, _format), rawValue: result.equatorialAsc),
+                  ResultField(label: 'Asc', value: formatAngle(result.asc, format), rawValue: result.asc),
+                  ResultField(label: 'MC', value: formatAngle(result.mc, format), rawValue: result.mc),
+                  ResultField(label: 'ARMC', value: formatAngle(result.armc, format), rawValue: result.armc),
+                  ResultField(label: 'Vertex', value: formatAngle(result.vertex, format), rawValue: result.vertex),
+                  ResultField(label: 'Eq Asc', value: formatAngle(result.equatorialAsc, format), rawValue: result.equatorialAsc),
                 ],
               ),
             ],

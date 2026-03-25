@@ -3,7 +3,12 @@ import 'package:swisseph/swisseph.dart';
 
 import '../../core/calc_context.dart';
 import '../../core/calc_trigger.dart';
+import '../../core/display_format.dart';
+import '../../core/export_service.dart';
 import '../../core/swe_service.dart';
+
+/// Display format for Houses tab (promoted from local state).
+final housesFormatProvider = StateProvider<DisplayFormat>((ref) => DisplayFormat.dms);
 
 /// Result of a house calculation.
 class HousesCalcResult {
@@ -93,3 +98,28 @@ final housesResultProvider = Provider<HousesCalcResult?>((ref) {
     return null;
   }
 });
+
+/// Convert house results to export rows.
+List<ExportRow> housesToExportRows(HousesCalcResult result, DisplayFormat fmt) {
+  final rows = <ExportRow>[];
+  // Angles card first
+  rows.add(ExportRow(
+    header: 'Angles (${result.hsysName})',
+    fields: [
+      ('Asc', formatAngle(result.asc, fmt)),
+      ('MC', formatAngle(result.mc, fmt)),
+      ('ARMC', formatAngle(result.armc, fmt)),
+      ('Vertex', formatAngle(result.vertex, fmt)),
+      ('Eq Asc', formatAngle(result.equatorialAsc, fmt)),
+    ],
+  ));
+  // Cusp cards
+  for (int i = 1; i < result.cusps.length; i++) {
+    if (result.cusps[i] == 0.0 && i > 12) continue; // skip unused slots
+    rows.add(ExportRow(
+      header: 'Cusp $i',
+      fields: [('Longitude', formatAngle(result.cusps[i], fmt))],
+    ));
+  }
+  return rows;
+}

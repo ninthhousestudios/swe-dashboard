@@ -12,7 +12,10 @@ import 'flag_toggle.dart';
 /// The flag bar — coordinate group + composable toggles + hex display.
 /// Shows auto-locked flags as informational chips.
 class FlagBar extends ConsumerWidget {
-  const FlagBar({super.key});
+  const FlagBar({super.key, this.trailing});
+
+  /// Optional widget inserted between the hex display and Calculate button.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -80,6 +83,10 @@ class FlagBar extends ConsumerWidget {
                   ),
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing!,
+          ],
           const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: () {

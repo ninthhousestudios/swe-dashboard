@@ -15,7 +15,6 @@ class PlanetsTab extends ConsumerStatefulWidget {
 }
 
 class _PlanetsTabState extends ConsumerState<PlanetsTab> {
-  DisplayFormat _format = DisplayFormat.dms;
   bool _showExtraBodies = false;
   bool _showAsteroids = false;
   final _asteroidController = TextEditingController();
@@ -85,23 +84,6 @@ class _PlanetsTabState extends ConsumerState<PlanetsTab> {
                     ),
                   );
                 }),
-                const SizedBox(width: 8),
-                SegmentedButton<DisplayFormat>(
-                  segments: DisplayFormat.values
-                      .map((f) => ButtonSegment(value: f, label: Text(f.label)))
-                      .toList(),
-                  selected: {_format},
-                  onSelectionChanged: (s) => setState(() => _format = s.first),
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: WidgetStatePropertyAll(theme.textTheme.labelSmall),
-                    padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 4),
-                    ),
-                    minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
-                  ),
-                ),
               ],
             ),
           ),
@@ -264,6 +246,7 @@ class _PlanetsTabState extends ConsumerState<PlanetsTab> {
   }
 
   Widget _buildResults() {
+    final format = ref.watch(planetsFormatProvider);
     final results = ref.watch(planetsResultsProvider);
 
     if (results.isEmpty) {
@@ -292,37 +275,35 @@ class _PlanetsTabState extends ConsumerState<PlanetsTab> {
                   title: r.bodyName,
                   subtitle: 'calcUt(${r.body})',
                   flagHex: '0x${r.returnFlag.toRadixString(16).toUpperCase()}',
-                  format: _format,
-                  onFormatChanged: null,
                   fields: [
                     ResultField(
                       label: 'Longitude',
-                      value: formatAngle(r.longitude, _format),
+                      value: formatAngle(r.longitude, format),
                       rawValue: r.longitude,
                     ),
                     ResultField(
                       label: 'Latitude',
-                      value: formatAngle(r.latitude, _format),
+                      value: formatAngle(r.latitude, format),
                       rawValue: r.latitude,
                     ),
                     ResultField(
                       label: 'Distance',
-                      value: formatDistance(r.distance, _format),
+                      value: formatDistance(r.distance, format),
                       rawValue: r.distance,
                     ),
                     ResultField(
                       label: 'Spd Lon',
-                      value: formatSpeed(r.speedLon, _format),
+                      value: formatSpeed(r.speedLon, format),
                       rawValue: r.speedLon,
                     ),
                     ResultField(
                       label: 'Spd Lat',
-                      value: formatSpeed(r.speedLat, _format),
+                      value: formatSpeed(r.speedLat, format),
                       rawValue: r.speedLat,
                     ),
                     ResultField(
                       label: 'Spd Dist',
-                      value: formatSpeed(r.speedDist, _format),
+                      value: formatSpeed(r.speedDist, format),
                       rawValue: r.speedDist,
                     ),
                   ],

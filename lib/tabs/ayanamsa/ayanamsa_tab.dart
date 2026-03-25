@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/context_provider.dart';
 import '../../core/display_format.dart';
+import '../../widgets/export_button.dart';
 import '../../widgets/result_card.dart';
 import 'ayanamsa_provider.dart';
 
@@ -13,7 +15,6 @@ class AyanamsaTab extends ConsumerStatefulWidget {
 }
 
 class _AyanamsaTabState extends ConsumerState<AyanamsaTab> {
-  DisplayFormat _format = DisplayFormat.dms;
   bool _hasCalculated = false;
 
   void _calculate() {
@@ -60,20 +61,35 @@ class _AyanamsaTabState extends ConsumerState<AyanamsaTab> {
                       style: const ButtonStyle(visualDensity: VisualDensity.compact),
                     ),
                     const SizedBox(width: 12),
-                    SegmentedButton<DisplayFormat>(
-                      segments: DisplayFormat.values
-                          .map((f) => ButtonSegment(value: f, label: Text(f.label)))
-                          .toList(),
-                      selected: {_format},
-                      onSelectionChanged: (s) => setState(() => _format = s.first),
-                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                    ),
+                    Consumer(builder: (context, ref, _) {
+                      final fmt = ref.watch(ayanamsaFormatProvider);
+                      return SegmentedButton<DisplayFormat>(
+                        segments: DisplayFormat.values
+                            .map((f) => ButtonSegment(value: f, label: Text(f.label)))
+                            .toList(),
+                        selected: {fmt},
+                        onSelectionChanged: (s) =>
+                            ref.read(ayanamsaFormatProvider.notifier).state = s.first,
+                        style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                      );
+                    }),
                     const SizedBox(width: 12),
                     FilledButton.icon(
                       onPressed: _calculate,
                       icon: const Icon(Icons.calculate, size: 18),
                       label: const Text('Calculate'),
                     ),
+                    const SizedBox(width: 8),
+                    Consumer(builder: (context, ref, _) {
+                      final results = ref.watch(ayanamsaResultsProvider);
+                      final fmt = ref.watch(ayanamsaFormatProvider);
+                      final jd = ref.watch(contextBarProvider).jdUt;
+                      return ExportButton(
+                        hasResults: _hasCalculated && results.isNotEmpty,
+                        getRows: () => ayanamsaToExportRows(results, fmt),
+                        filenameStem: 'swe_ayanamsa_${jd.toStringAsFixed(4)}',
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -117,6 +133,7 @@ class _AyanamsaTabState extends ConsumerState<AyanamsaTab> {
   }
 
   Widget _buildResults() {
+    final format = ref.watch(ayanamsaFormatProvider);
     final results = ref.watch(ayanamsaResultsProvider);
 
     if (results.isEmpty) {
@@ -151,12 +168,10 @@ class _AyanamsaTabState extends ConsumerState<AyanamsaTab> {
                 child: ResultCard(
                   title: r.name,
                   subtitle: 'SE_SIDM_${r.sidMode}',
-                  format: _format,
-                  onFormatChanged: null,
                   fields: [
                     ResultField(
                       label: 'Value',
-                      value: formatAngle(r.value, _format),
+                      value: formatAngle(r.value, format),
                       rawValue: r.value,
                     ),
                   ],
@@ -170,6 +185,7 @@ class _AyanamsaTabState extends ConsumerState<AyanamsaTab> {
   }
 
   Widget _buildCompareTable(List<AyanamsaCalcResult> results) {
+    final format = ref.watch(ayanamsaFormatProvider);
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -189,7 +205,7 @@ class _AyanamsaTabState extends ConsumerState<AyanamsaTab> {
             DataCell(Text('${r.sidMode}', style: theme.textTheme.bodySmall)),
             DataCell(Text(r.name, style: theme.textTheme.bodySmall)),
             DataCell(SelectableText(
-              formatAngle(r.value, _format),
+              formatAngle(r.value, format),
               style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
             )),
           ]);

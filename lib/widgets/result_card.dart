@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/display_format.dart';
-
 /// A single key-value pair in a result card.
 class ResultField {
   const ResultField({required this.label, required this.value, this.rawValue});
@@ -18,8 +16,8 @@ class ResultField {
 /// Generic result card used across all tabs.
 ///
 /// Shows a header (function name, body, flag hex), a list of
-/// key-value result fields, and action buttons (format toggle,
-/// copy, pin placeholder).
+/// key-value result fields, and action buttons (copy, pin).
+/// Format toggle is tab-level only — not per-card.
 class ResultCard extends StatelessWidget {
   const ResultCard({
     super.key,
@@ -27,8 +25,6 @@ class ResultCard extends StatelessWidget {
     this.subtitle,
     this.flagHex,
     required this.fields,
-    required this.format,
-    this.onFormatChanged,
     this.onPin,
   });
 
@@ -36,8 +32,6 @@ class ResultCard extends StatelessWidget {
   final String? subtitle;
   final String? flagHex;
   final List<ResultField> fields;
-  final DisplayFormat format;
-  final ValueChanged<DisplayFormat>? onFormatChanged;
   final VoidCallback? onPin;
 
   @override
@@ -106,44 +100,30 @@ class ResultCard extends StatelessWidget {
                     ],
                   ),
                 )),
-            // Action row (hidden when no per-card controls needed)
-            if (onFormatChanged != null || onPin != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onFormatChanged != null)
-                    SegmentedButton<DisplayFormat>(
-                      segments: DisplayFormat.values
-                          .map((f) => ButtonSegment(value: f, label: Text(f.label)))
-                          .toList(),
-                      selected: {format},
-                      onSelectionChanged: (s) => onFormatChanged?.call(s.first),
-                      style: ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        textStyle: WidgetStatePropertyAll(theme.textTheme.labelSmall),
-                      ),
-                    ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.copy, size: 18),
-                    tooltip: 'Copy to clipboard',
-                    onPressed: () {
-                      final text = fields.map((f) => '${f.label}: ${f.value}').join('\n');
-                      Clipboard.setData(ClipboardData(text: '$title\n$text'));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
-                      );
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.push_pin_outlined, size: 18),
-                    tooltip: 'Pin result',
-                    onPressed: onPin,
-                  ),
-                ],
-              ),
-            ],
+            // Action row: copy + pin
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 18),
+                  tooltip: 'Copy to clipboard',
+                  onPressed: () {
+                    final text = fields.map((f) => '${f.label}: ${f.value}').join('\n');
+                    Clipboard.setData(ClipboardData(text: '$title\n$text'));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.push_pin_outlined, size: 18),
+                  tooltip: 'Pin result',
+                  onPressed: onPin,
+                ),
+              ],
+            ),
           ],
         ),
       ),

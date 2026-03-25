@@ -208,17 +208,111 @@ class _ContextBarState extends ConsumerState<ContextBar> {
   Future<void> _pickTime() async {
     final ctx = ref.read(contextBarProvider);
     final local = _jdUtils.applyUtcOffset(ctx.dateTime, ctx.utcOffset);
-    final picked = await showTimePicker(
+    final picked = await _showPreciseTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: local.hour, minute: local.minute),
+      initialHour: local.hour,
+      initialMinute: local.minute,
+      initialSecond: local.second,
     );
     if (picked == null) return;
     final newLocal = DateTime.utc(
       local.year, local.month, local.day,
-      picked.hour, picked.minute, local.second,
+      picked.$1, picked.$2, picked.$3,
     );
     ref.read(contextBarProvider.notifier)
         .setDateTime(_jdUtils.removeUtcOffset(newLocal, ctx.utcOffset));
+  }
+
+  /// Time picker dialog with hour, minute, and second spinners.
+  static Future<(int, int, int)?> _showPreciseTimePicker({
+    required BuildContext context,
+    required int initialHour,
+    required int initialMinute,
+    required int initialSecond,
+  }) {
+    var h = initialHour;
+    var m = initialMinute;
+    var s = initialSecond;
+    return showDialog<(int, int, int)>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          final spinnerStyle = Theme.of(ctx).textTheme.headlineSmall?.copyWith(fontFamily: 'monospace');
+          final colonStyle = Theme.of(ctx).textTheme.headlineSmall?.copyWith(fontFamily: 'monospace');
+
+          Widget spinner(String label, int value, int max, ValueChanged<int> onChanged) {
+            return IntrinsicWidth(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label, style: Theme.of(ctx).textTheme.labelSmall),
+                  const SizedBox(height: 4),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_drop_up),
+                    onPressed: () => setState(() => onChanged((value + 1) % (max + 1))),
+                  ),
+                  TextField(
+                    controller: TextEditingController(text: value.toString().padLeft(2, '0')),
+                    textAlign: TextAlign.center,
+                    style: spinnerStyle,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(2),
+                    ],
+                    onChanged: (text) {
+                      final v = int.tryParse(text);
+                      if (v != null && v >= 0 && v <= max) {
+                        onChanged(v);
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_drop_down),
+                    onPressed: () => setState(() => onChanged((value - 1 + max + 1) % (max + 1))),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('Set Time'),
+            content: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                spinner('Hour', h, 23, (v) => h = v),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(':', style: colonStyle),
+                ),
+                spinner('Min', m, 59, (v) => m = v),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(':', style: colonStyle),
+                ),
+                spinner('Sec', s, 59, (v) => s = v),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop((h, m, s)),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   /// Half-hour UTC offset options from -12:00 to +12:00.
@@ -394,10 +488,8 @@ class _ContextBarState extends ConsumerState<ContextBar> {
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _iconBtn(Icons.schedule, 'Set to now', () {
-                                  final now = DateTime.now();
-                                  _time.text = '${_p(now.hour, 2)}:${_p(now.minute, 2)}:${_p(now.second, 2)}';
-                                  _commitTime();
+                                _iconBtn(Icons.update, 'Set to now', () {
+                                  ref.read(contextBarProvider.notifier).setNow();
                                 }),
                                 _iconBtn(Icons.access_time, 'Pick time', _pickTime),
                               ],
@@ -412,9 +504,7 @@ class _ContextBarState extends ConsumerState<ContextBar> {
                         child: _labeled('JD (UT)', _jd, _jdFocus,
                             hint: '2460000.0',
                             onCommit: _commitJd,
-                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
-                            trailing: _iconBtn(Icons.update, 'Set to now',
-                                () => ref.read(contextBarProvider.notifier).setNow())),
+                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))]),
                       ),
                     ],
                   ),

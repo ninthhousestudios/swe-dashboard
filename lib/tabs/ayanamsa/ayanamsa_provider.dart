@@ -2,7 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:swisseph/swisseph.dart';
 
 import '../../core/calc_context.dart';
+import '../../core/display_format.dart';
+import '../../core/export_service.dart';
 import '../../core/swe_service.dart';
+
+/// Display format for Ayanamsa tab (promoted from local state).
+final ayanamsaFormatProvider = StateProvider<DisplayFormat>((ref) => DisplayFormat.dms);
 
 /// Result for a single ayanamsa calculation.
 class AyanamsaCalcResult {
@@ -100,3 +105,11 @@ final ayanamsaResultsProvider = Provider<List<AyanamsaCalcResult>>((ref) {
 
   return results;
 });
+
+/// Convert ayanamsa results to export rows.
+List<ExportRow> ayanamsaToExportRows(List<AyanamsaCalcResult> results, DisplayFormat fmt) {
+  return results.map((r) => ExportRow(
+    header: r.name,
+    fields: [('Value', formatAngle(r.value, fmt))],
+  )).toList();
+}
