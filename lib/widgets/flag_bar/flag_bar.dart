@@ -118,8 +118,8 @@ class FlagBar extends ConsumerWidget {
 
 /// Labels for auto-locked flags (only shown when active).
 const _lockedFlagLabels = {
-  seflgSidereal: 'Sidereal',
-  seflgTopoctr: 'Topocentric',
-  seflgHelctr: 'Heliocentric',
-  seflgBaryctr: 'Barycentric',
+  seFlgSidereal: 'Sidereal',
+  seFlgTopoCtr: 'Topocentric',
+  seFlgHelCtr: 'Heliocentric',
+  seFlgBaryCtr: 'Barycentric',
 };

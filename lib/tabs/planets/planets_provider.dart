@@ -124,7 +124,7 @@ final planetsResultsProvider = Provider<List<PlanetResult>>((ref) {
   for (final body in bodies) {
     try {
       // Ensure SPEED flag is set for speed values.
-      final flags = ectx.iflag | seflgSpeed;
+      final flags = ectx.iflag | seFlgSpeed;
       final r = swe.calcUt(ectx.jdUt, body, flags);
       results.add(PlanetResult(
         body: body,

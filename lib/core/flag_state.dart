@@ -66,17 +66,17 @@ class FlagBarState {
 
     // Zodiac reference
     if (ctx.zodiacRef == ZodiacRef.sidereal) {
-      locked |= seflgSidereal;
+      locked |= seFlgSidereal;
     }
 
     // Origin
     switch (ctx.origin) {
       case Origin.topocentric:
-        locked |= seflgTopoctr;
+        locked |= seFlgTopoCtr;
       case Origin.heliocentric:
-        locked |= seflgHelctr;
+        locked |= seFlgHelCtr;
       case Origin.barycentric:
-        locked |= seflgBaryctr;
+        locked |= seFlgBaryCtr;
       case Origin.geocentric:
         break;
     }
@@ -84,11 +84,11 @@ class FlagBarState {
     // Ephemeris source
     switch (ctx.epheSource) {
       case EpheSource.swissEph:
-        locked |= seflgSwieph;
+        locked |= seFlgSwiEph;
       case EpheSource.jpl:
-        locked |= seflgJpleph;
+        locked |= seFlgJplEph;
       case EpheSource.moshier:
-        locked |= seflgMoseph;
+        locked |= seFlgMosEph;
     }
 
     return locked;

@@ -38,12 +38,12 @@ final coordGroup = FlagGroup(
     ),
     FlagDef(
       label: 'Equatorial',
-      value: seflgEquatorial,
+      value: seFlgEquatorial,
       tooltip: 'Right ascension / declination',
     ),
     FlagDef(
       label: 'XYZ',
-      value: seflgXyz,
+      value: seFlgXyz,
       tooltip: 'Cartesian X/Y/Z coordinates',
     ),
   ],
@@ -53,27 +53,27 @@ final coordGroup = FlagGroup(
 final flagToggles = [
   FlagDef(
     label: 'Speed',
-    value: seflgSpeed,
+    value: seFlgSpeed,
     tooltip: 'Include speed (daily motion) in output',
   ),
   FlagDef(
     label: 'True Pos',
-    value: seflgTruepos,
+    value: seFlgTruePos,
     tooltip: 'True geometric position (no aberration/deflection)',
   ),
   FlagDef(
     label: 'No Aberr',
-    value: seflgNoaberr,
+    value: seFlgNoAberr,
     tooltip: 'No annual aberration correction',
   ),
   FlagDef(
     label: 'No Grav',
-    value: seflgNogdefl,
+    value: seFlgNoGdefl,
     tooltip: 'No gravitational light deflection',
   ),
   FlagDef(
     label: 'Radians',
-    value: seflgRadians,
+    value: seFlgRadians,
     tooltip: 'Output in radians instead of degrees',
   ),
   FlagDef(
@@ -88,7 +88,7 @@ final flagToggles = [
   ),
   FlagDef(
     label: 'ICRS',
-    value: seflgIcrs,
+    value: seFlgIcrs,
     tooltip: 'ICRS (International Celestial Reference System)',
   ),
 ];
@@ -96,11 +96,11 @@ final flagToggles = [
 /// Flags that are auto-locked by context bar settings.
 /// These should NOT appear as user toggles — they are managed automatically.
 const autoManagedFlags = {
-  seflgSidereal, // locked by ZodiacRef.sidereal
-  seflgTopoctr, // locked by Origin.topocentric
-  seflgHelctr, // locked by Origin.heliocentric
-  seflgBaryctr, // locked by Origin.barycentric
-  seflgJpleph, // locked by EpheSource.jpl
-  seflgSwieph, // locked by EpheSource.swissEph
-  seflgMoseph, // locked by EpheSource.moshier
+  seFlgSidereal, // locked by ZodiacRef.sidereal
+  seFlgTopoCtr, // locked by Origin.topocentric
+  seFlgHelCtr, // locked by Origin.heliocentric
+  seFlgBaryCtr, // locked by Origin.barycentric
+  seFlgJplEph, // locked by EpheSource.jpl
+  seFlgSwiEph, // locked by EpheSource.swissEph
+  seFlgMosEph, // locked by EpheSource.moshier
 };
