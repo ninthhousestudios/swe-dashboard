@@ -11,6 +11,7 @@
 .history
 .svn/
 .swiftpm/
+ios-error.md
 test/goldens/
 migrate_working_dir/
 

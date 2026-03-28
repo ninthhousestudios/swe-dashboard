@@ -30,11 +30,10 @@ Future<NativeInitResult> initNativeEphePath() async {
 
   // --- Desktop dev mode: find swisseph package in pub cache ---
   if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
-    final pkgConfigFile =
-        File('${Directory.current.path}/.dart_tool/package_config.json');
-    if (pkgConfigFile.existsSync()) {
+    final pkgConfigPath = _findPackageConfig();
+    if (pkgConfigPath != null) {
       final config =
-          jsonDecode(pkgConfigFile.readAsStringSync()) as Map<String, dynamic>;
+          jsonDecode(File(pkgConfigPath).readAsStringSync()) as Map<String, dynamic>;
       final packages = config['packages'] as List<dynamic>;
       for (final pkg in packages) {
         if (pkg['name'] == 'swisseph') {
@@ -69,8 +68,7 @@ Future<NativeInitResult> initNativeEphePath() async {
       }
     }
 
-    final swe = SwissEph(
-        Platform.isAndroid ? 'libswisseph.so' : 'libswisseph.dylib');
+    final swe = _loadNativeLibrary();
     return NativeInitResult(ephePath: epheDir.path, swe: swe);
   }
 
@@ -82,22 +80,108 @@ Future<NativeInitResult> initNativeEphePath() async {
 
 /// Create a SwissEph instance for desktop (release bundle or dev mode).
 SwissEph createDesktopSwissEph() {
+  return _loadNativeLibrary();
+}
+
+/// Load the Swiss Ephemeris native library, searching all known locations.
+///
+/// Search order:
+/// 1. Release bundle paths (exe-relative: lib/, Frameworks/, etc.)
+/// 2. App bundle Frameworks directory (iOS/macOS)
+/// 3. Native assets embedded library (bare name via dlopen)
+/// 4. SwissEph.find() — walks CWD/.dart_tool/
+/// 5. Project .dart_tool/ found via package_config.json or exe path walk
+SwissEph _loadNativeLibrary() {
   final exeDir = File(Platform.resolvedExecutable).parent.path;
 
-  // Linux: lib/libswisseph.so next to the executable
-  // macOS: Frameworks/libswisseph.dylib inside the .app bundle
-  // Windows: swisseph.dll next to the executable (same dir, no lib/ subdir)
+  // --- Release bundle paths ---
   final candidates = [
-    '$exeDir/lib/libswisseph.so',
-    '$exeDir/lib/libswisseph.dylib',
-    '$exeDir/../Frameworks/libswisseph.dylib',
-    '$exeDir/swisseph.dll',
+    '$exeDir/lib/libswisseph.so', // Linux release
+    '$exeDir/lib/libswisseph.dylib', // macOS non-bundle
+    '$exeDir/../Frameworks/libswisseph.dylib', // macOS .app bundle (native assets)
+    '$exeDir/Frameworks/libswisseph.dylib', // iOS .app bundle (native assets)
+    '$exeDir/swisseph.dll', // Windows release
   ];
   for (final path in candidates) {
     if (File(path).existsSync()) return SwissEph(path);
   }
 
-  return SwissEph.find();
+  // --- Android: load by soname from APK ---
+  if (Platform.isAndroid) return SwissEph('libswisseph.so');
+
+  // --- CocoaPods dynamic framework (use_frameworks! in Podfile) ---
+  // On iOS/macOS, dlopen recognizes the framework path pattern and searches
+  // @rpath (which includes @executable_path/Frameworks for app bundles).
+  if (Platform.isIOS || Platform.isMacOS) {
+    try {
+      return SwissEph('swisseph_native.framework/swisseph_native');
+    } catch (_) {}
+  }
+
+  // --- Try bare library name (works if native assets embedded it) ---
+  final bareName =
+      Platform.isWindows ? 'swisseph.dll' : 'libswisseph.dylib';
+  try {
+    return SwissEph(bareName);
+  } catch (_) {}
+
+  // --- SwissEph.find() walks CWD/.dart_tool/ ---
+  try {
+    return SwissEph.find();
+  } catch (_) {}
+
+  // --- Dev mode: find .dart_tool/ via package_config.json or exe walk ---
+  final libPath = _findLibraryInDartTool();
+  if (libPath != null) return SwissEph(libPath);
+
+  throw StateError(
+    'libswisseph not found. Ensure native assets are enabled '
+    '(flutter config --enable-native-assets) and run flutter pub get.',
+  );
+}
+
+/// Find .dart_tool/package_config.json from CWD or by walking up from exe.
+String? _findPackageConfig() {
+  // Try CWD first (works on Linux desktop dev mode).
+  final cwdConfig =
+      File('${Directory.current.path}/.dart_tool/package_config.json');
+  if (cwdConfig.existsSync()) return cwdConfig.path;
+
+  // Walk up from executable to find project root (macOS dev mode:
+  // exe is at <project>/build/macos/Build/Products/Debug/Runner.app/Contents/MacOS/Runner).
+  var dir = File(Platform.resolvedExecutable).parent;
+  for (var i = 0; i < 12; i++) {
+    final candidate = File('${dir.path}/.dart_tool/package_config.json');
+    if (candidate.existsSync()) return candidate.path;
+    final parent = dir.parent;
+    if (parent.path == dir.path) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/// Search .dart_tool/ (found via package_config.json or exe walk) for the
+/// compiled native library.
+String? _findLibraryInDartTool() {
+  final pkgConfig = _findPackageConfig();
+  if (pkgConfig == null) return null;
+
+  // .dart_tool/package_config.json → .dart_tool/
+  final dartToolDir = File(pkgConfig).parent;
+  if (!dartToolDir.existsSync()) return null;
+
+  final libNames = ['libswisseph.so', 'libswisseph.dylib', 'swisseph.dll'];
+  try {
+    for (final entity in dartToolDir.listSync(recursive: true)) {
+      if (entity is File &&
+          libNames.any((name) => entity.path.endsWith(name))) {
+        return entity.path;
+      }
+    }
+  } catch (_) {
+    // Permission or I/O errors — skip.
+  }
+  return null;
 }
 
 bool _isValidEpheDir(String path) {
