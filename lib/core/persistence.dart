@@ -1,0 +1,152 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'context_state.dart';
+import 'flag_state.dart';
+import '../layout/tab_definitions.dart';
+
+/// Provider for the SharedPreferences instance, initialized in main().
+final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError('Must be overridden in ProviderScope');
+});
+
+class PersistenceService {
+  PersistenceService(this._prefs);
+  final SharedPreferences _prefs;
+
+  // ── Context Bar ──
+
+  void saveContextBar(ContextBarState s) {
+    _prefs.setDouble('ctx_latitude', s.latitude);
+    _prefs.setDouble('ctx_longitude', s.longitude);
+    _prefs.setDouble('ctx_altitude', s.altitude);
+    _prefs.setString('ctx_city_label', s.cityLabel);
+    _prefs.setString('ctx_origin', s.origin.name);
+    _prefs.setString('ctx_zodiac_ref', s.zodiacRef.name);
+    _prefs.setString('ctx_eq_ref', s.eqRef.name);
+    _prefs.setInt('ctx_ayanamsa', s.ayanamsa);
+    _prefs.setString('ctx_ephe_source', s.epheSource.name);
+    _prefs.setDouble('ctx_utc_offset', s.utcOffset);
+  }
+
+  /// Returns a map of overrides to apply to the initial ContextBarState.
+  /// dateTime/jdUt are NOT persisted — always start at "now".
+  Map<String, dynamic> loadContextBar() {
+    final map = <String, dynamic>{};
+    if (_prefs.containsKey('ctx_latitude')) {
+      map['latitude'] = _prefs.getDouble('ctx_latitude');
+    }
+    if (_prefs.containsKey('ctx_longitude')) {
+      map['longitude'] = _prefs.getDouble('ctx_longitude');
+    }
+    if (_prefs.containsKey('ctx_altitude')) {
+      map['altitude'] = _prefs.getDouble('ctx_altitude');
+    }
+    if (_prefs.containsKey('ctx_city_label')) {
+      map['cityLabel'] = _prefs.getString('ctx_city_label');
+    }
+    if (_prefs.containsKey('ctx_origin')) {
+      final name = _prefs.getString('ctx_origin');
+      map['origin'] = Origin.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => Origin.geocentric,
+      );
+    }
+    if (_prefs.containsKey('ctx_zodiac_ref')) {
+      final name = _prefs.getString('ctx_zodiac_ref');
+      map['zodiacRef'] = ZodiacRef.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => ZodiacRef.tropical,
+      );
+    }
+    if (_prefs.containsKey('ctx_eq_ref')) {
+      final name = _prefs.getString('ctx_eq_ref');
+      map['eqRef'] = EqRef.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => EqRef.trueEquinox,
+      );
+    }
+    if (_prefs.containsKey('ctx_ayanamsa')) {
+      map['ayanamsa'] = _prefs.getInt('ctx_ayanamsa');
+    }
+    if (_prefs.containsKey('ctx_ephe_source')) {
+      final name = _prefs.getString('ctx_ephe_source');
+      map['epheSource'] = EpheSource.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => EpheSource.swissEph,
+      );
+    }
+    if (_prefs.containsKey('ctx_utc_offset')) {
+      map['utcOffset'] = _prefs.getDouble('ctx_utc_offset');
+    }
+    return map;
+  }
+
+  // ── Flag Bar ──
+
+  void saveFlagBar(FlagBarState s) {
+    _prefs.setInt('flag_coord_value', s.coordValue);
+    _prefs.setStringList(
+      'flag_toggles',
+      s.toggles.map((e) => e.toString()).toList(),
+    );
+  }
+
+  Map<String, dynamic> loadFlagBar() {
+    final map = <String, dynamic>{};
+    if (_prefs.containsKey('flag_coord_value')) {
+      map['coordValue'] = _prefs.getInt('flag_coord_value');
+    }
+    if (_prefs.containsKey('flag_toggles')) {
+      final list = _prefs.getStringList('flag_toggles') ?? [];
+      map['toggles'] = list.map((s) => int.tryParse(s) ?? 0).toSet();
+    }
+    return map;
+  }
+
+  // ── Theme ──
+
+  void saveTheme(ThemeMode mode) {
+    _prefs.setString('theme', mode.name);
+  }
+
+  ThemeMode loadTheme() {
+    final name = _prefs.getString('theme');
+    if (name == null) return ThemeMode.dark;
+    return ThemeMode.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => ThemeMode.dark,
+    );
+  }
+
+  // ── Zoom ──
+
+  void saveZoom(double scale) {
+    _prefs.setDouble('zoom', scale);
+  }
+
+  double loadZoom() {
+    return _prefs.getDouble('zoom') ?? 1.0;
+  }
+
+  // ── Selected Tab ──
+
+  void saveTab(AppTab tab) {
+    _prefs.setString('tab', tab.name);
+  }
+
+  AppTab loadTab() {
+    final name = _prefs.getString('tab');
+    if (name == null) return AppTab.planets;
+    return AppTab.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => AppTab.planets,
+    );
+  }
+}
+
+/// Provider for PersistenceService — reads the SharedPreferences provider.
+final persistenceProvider = Provider<PersistenceService>((ref) {
+  return PersistenceService(ref.watch(sharedPrefsProvider));
+});

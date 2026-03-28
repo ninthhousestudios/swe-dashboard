@@ -126,3 +126,23 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Bundle Swiss Ephemeris data files (.se1, sefstars.txt, etc.)
+# Resolved from .dart_tool/package_config.json at configure time.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../.dart_tool/package_config.json" _PKG_JSON)
+string(JSON _PKG_COUNT LENGTH "${_PKG_JSON}" "packages")
+math(EXPR _PKG_LAST "${_PKG_COUNT} - 1")
+foreach(_i RANGE 0 ${_PKG_LAST})
+  string(JSON _NAME GET "${_PKG_JSON}" "packages" ${_i} "name")
+  if("${_NAME}" STREQUAL "swisseph")
+    string(JSON _ROOT_URI GET "${_PKG_JSON}" "packages" ${_i} "rootUri")
+    string(REPLACE "file://" "" _PKG_ROOT "${_ROOT_URI}")
+    set(SWISSEPH_EPHE_DIR "${_PKG_ROOT}/ephe")
+    break()
+  endif()
+endforeach()
+if(EXISTS "${SWISSEPH_EPHE_DIR}")
+  install(DIRECTORY "${SWISSEPH_EPHE_DIR}"
+    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+    COMPONENT Runtime)
+endif()

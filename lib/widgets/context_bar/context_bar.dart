@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../chart_formats/chart_io.dart';
 import '../../core/context_provider.dart';
+import '../chart-file-dialog.dart';
 import '../../core/jd_utils.dart';
 import '../../core/swe_service.dart';
 import 'origin_selector.dart';
@@ -419,6 +421,26 @@ class _ContextBarState extends ConsumerState<ContextBar> {
   /// so we can skip syncing (the controllers already have the right text).
   bool _selfUpdate = false;
 
+  Future<void> _openChart() async {
+    final path = await ChartFileDialog.show(context);
+    if (path == null || !mounted) return;
+    try {
+      final chart = ChartIO.read(path);
+      ref.read(contextBarProvider.notifier).loadFromChart(chart);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Loaded: ${chart.name}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading chart: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(contextBarProvider, (_, _) {
@@ -467,7 +489,20 @@ class _ContextBarState extends ConsumerState<ContextBar> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('TIME & PLACE', style: sectionLabel),
+                  Row(
+                    children: [
+                      Text('TIME & PLACE', style: sectionLabel),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.folder_open, size: 14),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 24, minHeight: 24),
+                        tooltip: 'Open chart file',
+                        onPressed: _openChart,
+                      ),
+                    ],
+                  ),
                   SizedBox(height: _rowGap),
                   // Row 1: Date | Time | UTC | JD [now]
                   Row(

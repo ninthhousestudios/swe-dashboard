@@ -1,24 +1,44 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:swisseph/swisseph.dart';
 
+// Conditional dart:io import — only used when !kIsWeb.
+import 'swe_service_io.dart'
+    if (dart.library.js_interop) 'swe_service_stub.dart' as io;
+
+/// Resolved once at startup; null on web (Moshier mode, no files needed).
+String? _ephePath;
+
+/// Loaded once at startup on mobile/web; null on desktop (created synchronously).
+SwissEph? _preloadedSwe;
+
+/// Call once from main() before runApp(). Resolves or extracts the
+/// ephemeris data files (.se1 + sefstars.txt) to a filesystem directory
+/// that the C library can read.
+///
+/// - **Web:** loads WASM module, uses Moshier mode (no ephe files).
+/// - **Linux/macOS/Windows desktop:** checks release bundle, then dev-mode
+///   .dart_tool/package_config.json.
+/// - **Android/iOS:** copies bundled assets/ephe/ to the app's support
+///   directory on first launch (skips if already present).
+Future<void> initSweEphePath() async {
+  // --- Web: WASM + Moshier mode (no filesystem) ---
+  if (kIsWeb) {
+    _preloadedSwe = await SwissEph.load();
+    return;
+  }
+
+  // --- Native platforms (dart:io available) ---
+  final result = await io.initNativeEphePath();
+  _ephePath = result.ephePath;
+  _preloadedSwe = result.swe;
+}
+
 final sweProvider = Provider<SwissEph>((ref) {
-  final swe = SwissEph(_findLibrary());
+  final swe = _preloadedSwe ?? io.createDesktopSwissEph();
+  if (_ephePath != null) {
+    swe.setEphePath(_ephePath!);
+  }
   ref.onDispose(() => swe.close());
   return swe;
 });
-
-/// Find libswisseph.so — checks the release bundle location first,
-/// then falls back to SwissEph.findLibrary() for dev mode (.dart_tool).
-String _findLibrary() {
-  // Release build: lib/libswisseph.so next to the executable.
-  final exeDir = File(Platform.resolvedExecutable).parent.path;
-  for (final name in ['libswisseph.so', 'libswisseph.dylib']) {
-    final path = '$exeDir/lib/$name';
-    if (File(path).existsSync()) return path;
-  }
-
-  // Dev mode: .dart_tool search
-  return SwissEph.findLibrary();
-}

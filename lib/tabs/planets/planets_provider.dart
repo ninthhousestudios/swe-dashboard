@@ -3,6 +3,7 @@ import 'package:swisseph/swisseph.dart';
 
 import '../../core/calc_context.dart';
 import '../../core/calc_trigger.dart';
+import '../../core/context_state.dart';
 import '../../core/display_format.dart';
 import '../../core/export_service.dart';
 import '../../core/swe_service.dart';
@@ -114,7 +115,14 @@ final planetsResultsProvider = Provider<List<PlanetResult>>((ref) {
 
   final ectx = ref.watch(effectiveContextProvider);
   final swe = ref.read(sweProvider);
-  final bodies = ref.watch(selectedBodiesProvider);
+  var bodies = ref.watch(selectedBodiesProvider);
+
+  // Auto-add Earth for heliocentric/barycentric calculations.
+  if ((ectx.origin == Origin.heliocentric ||
+          ectx.origin == Origin.barycentric) &&
+      !bodies.contains(seEarth)) {
+    bodies = [...bodies, seEarth];
+  }
 
   // Set C globals atomically.
   ectx.calculate(swe, (s, jd, flags) {

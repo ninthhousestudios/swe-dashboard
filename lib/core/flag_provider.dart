@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'context_provider.dart';
 import 'context_state.dart';
 import 'flag_state.dart';
+import 'persistence.dart';
 
 /// Global flag bar state provider.
 final flagBarProvider =
     StateNotifierProvider<FlagBarNotifier, FlagBarState>((ref) {
-  final notifier = FlagBarNotifier();
+  final persistence = ref.watch(persistenceProvider);
+  final notifier = FlagBarNotifier(persistence);
+
+  // Restore persisted flag state.
+  notifier.restoreFromPersistence();
 
   // Auto-link: update locked flags when context bar changes.
   // Use ref.listen (not ref.watch inside notifier) to avoid infinite loops.
@@ -23,11 +28,26 @@ final flagBarProvider =
 });
 
 class FlagBarNotifier extends StateNotifier<FlagBarState> {
-  FlagBarNotifier() : super(const FlagBarState());
+  FlagBarNotifier(this._persistence) : super(const FlagBarState());
+
+  final PersistenceService _persistence;
+
+  void _save() => _persistence.saveFlagBar(state);
+
+  /// Restore persisted coord group and toggles.
+  void restoreFromPersistence() {
+    final overrides = _persistence.loadFlagBar();
+    if (overrides.isEmpty) return;
+    state = state.copyWith(
+      coordValue: overrides['coordValue'] as int?,
+      toggles: overrides['toggles'] as Set<int>?,
+    );
+  }
 
   /// Set the mutually exclusive coordinate group.
   void setCoordGroup(int value) {
     state = state.copyWith(coordValue: value);
+    _save();
   }
 
   /// Toggle a composable flag on/off.
@@ -39,6 +59,7 @@ class FlagBarNotifier extends StateNotifier<FlagBarState> {
       newToggles.add(value);
     }
     state = state.copyWith(toggles: newToggles);
+    _save();
   }
 
   /// Set a composable flag explicitly on or off.
@@ -50,6 +71,7 @@ class FlagBarNotifier extends StateNotifier<FlagBarState> {
       newToggles.remove(value);
     }
     state = state.copyWith(toggles: newToggles);
+    _save();
   }
 
   /// Update locked flags from context bar state.

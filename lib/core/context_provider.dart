@@ -3,24 +3,36 @@ import 'package:swisseph/swisseph.dart';
 
 import 'context_state.dart';
 import 'jd_utils.dart';
+import 'persistence.dart';
 import 'swe_service.dart';
+import '../chart_formats/model/chart_data.dart';
 
 /// Global context bar state provider.
 final contextBarProvider =
     StateNotifierProvider<ContextBarNotifier, ContextBarState>((ref) {
   final swe = ref.watch(sweProvider);
-  return ContextBarNotifier(swe);
+  final persistence = ref.watch(persistenceProvider);
+  return ContextBarNotifier(swe, persistence);
 });
 
 /// Manages context bar state with bidirectional JD ↔ DateTime sync.
 class ContextBarNotifier extends StateNotifier<ContextBarState> {
-  ContextBarNotifier(SwissEph swe)
+  ContextBarNotifier(SwissEph swe, this._persistence)
       : _jdUtils = JdUtils(swe),
-        super(_initialState(swe));
+        super(_initialState(swe, _loadPersisted(swe)));
 
   final JdUtils _jdUtils;
+  final PersistenceService _persistence;
 
-  static ContextBarState _initialState(SwissEph swe) {
+  static Map<String, dynamic> _loadPersisted(SwissEph swe) {
+    // Can't use ref here, so we defer to a static helper.
+    // The persistence instance is passed via the factory above.
+    return {};
+  }
+
+  /// Build initial state from "now" + persisted overrides.
+  static ContextBarState _initialState(
+      SwissEph swe, Map<String, dynamic> overrides) {
     final now = DateTime.now().toUtc();
     final jdUtils = JdUtils(swe);
     final jd = jdUtils.dateTimeToJd(now);
@@ -32,21 +44,44 @@ class ContextBarNotifier extends StateNotifier<ContextBarState> {
     );
   }
 
+  /// Apply persisted values after construction (called from provider factory).
+  void restoreFromPersistence() {
+    final overrides = _persistence.loadContextBar();
+    if (overrides.isEmpty) return;
+    state = state.copyWith(
+      latitude: overrides['latitude'] as double?,
+      longitude: overrides['longitude'] as double?,
+      altitude: overrides['altitude'] as double?,
+      cityLabel: overrides['cityLabel'] as String?,
+      origin: overrides['origin'] as Origin?,
+      zodiacRef: overrides['zodiacRef'] as ZodiacRef?,
+      eqRef: overrides['eqRef'] as EqRef?,
+      ayanamsa: overrides['ayanamsa'] as int?,
+      epheSource: overrides['epheSource'] as EpheSource?,
+      utcOffset: overrides['utcOffset'] as double?,
+    );
+  }
+
+  void _save() => _persistence.saveContextBar(state);
+
   /// Set date/time (UT) — JD is recomputed.
   void setDateTime(DateTime dt) {
     final jd = _jdUtils.dateTimeToJd(dt);
     state = state.copyWith(dateTime: dt, jdUt: jd);
+    // dateTime not persisted
   }
 
   /// Set Julian Day — DateTime is recomputed.
   void setJd(double jd) {
     final dt = _jdUtils.jdToDateTime(jd);
     state = state.copyWith(jdUt: jd, dateTime: dt);
+    // jd not persisted
   }
 
   /// Set UTC offset (display only — does not change UT or JD).
   void setUtcOffset(double offsetHours) {
     state = state.copyWith(utcOffset: offsetHours);
+    _save();
   }
 
   /// Set "now" — current system time.
@@ -54,6 +89,7 @@ class ContextBarNotifier extends StateNotifier<ContextBarState> {
     final now = DateTime.now().toUtc();
     final jd = _jdUtils.dateTimeToJd(now);
     state = state.copyWith(dateTime: now, jdUt: jd);
+    // dateTime not persisted
   }
 
   /// Set geographic location.
@@ -69,25 +105,48 @@ class ContextBarNotifier extends StateNotifier<ContextBarState> {
       altitude: altitude,
       cityLabel: cityLabel,
     );
+    _save();
   }
 
   void setOrigin(Origin origin) {
     state = state.copyWith(origin: origin);
+    _save();
   }
 
   void setZodiacRef(ZodiacRef zodiacRef) {
     state = state.copyWith(zodiacRef: zodiacRef);
+    _save();
   }
 
   void setEqRef(EqRef eqRef) {
     state = state.copyWith(eqRef: eqRef);
+    _save();
   }
 
   void setAyanamsa(int sidMode) {
     state = state.copyWith(ayanamsa: sidMode);
+    _save();
   }
 
   void setEpheSource(EpheSource source) {
     state = state.copyWith(epheSource: source);
+    _save();
+  }
+
+  /// Load context from a parsed chart file.
+  void loadFromChart(ChartData chart) {
+    final utcDt = chart.utcDateTime;
+    final jd = _jdUtils.dateTimeToJd(utcDt);
+    final totalOffset = chart.utcOffsetHours + chart.dstOffsetHours;
+    final loc = chart.birthLocation;
+    state = state.copyWith(
+      dateTime: utcDt,
+      jdUt: jd,
+      utcOffset: totalOffset,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      cityLabel: '${loc.city}, ${loc.country}',
+    );
+    _save();
   }
 }

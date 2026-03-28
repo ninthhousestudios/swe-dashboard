@@ -1,0 +1,362 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:swisseph/swisseph.dart';
+
+import '../../core/context_provider.dart';
+import '../../widgets/export_button.dart';
+import '../../widgets/result_card.dart';
+import 'rise_set_provider.dart';
+
+// ── Body list ─────────────────────────────────────────────────────────────────
+
+const _bodies = [
+  (seSun, 'Sun'), (seMoon, 'Moon'), (seMercury, 'Mercury'),
+  (seVenus, 'Venus'), (seMars, 'Mars'), (seJupiter, 'Jupiter'),
+  (seSaturn, 'Saturn'), (seUranus, 'Uranus'), (seNeptune, 'Neptune'),
+  (sePluto, 'Pluto'),
+];
+
+// ── Twilight modes ────────────────────────────────────────────────────────────
+
+enum _TwilightMode {
+  none('None', 0),
+  civil('Civil', rsBitCivilTwilight),
+  nautical('Nautical', rsBitNauticTwilight),
+  astronomical('Astronomical', rsBitAstroTwilight);
+
+  const _TwilightMode(this.label, this.bit);
+  final String label;
+  final int bit;
+}
+
+// ── Tab widget ────────────────────────────────────────────────────────────────
+
+class RiseSetTab extends ConsumerStatefulWidget {
+  const RiseSetTab({super.key});
+
+  @override
+  ConsumerState<RiseSetTab> createState() => _RiseSetTabState();
+}
+
+class _RiseSetTabState extends ConsumerState<RiseSetTab> {
+  _TwilightMode _twilightMode = _TwilightMode.none;
+  bool _showAtmospheric = false;
+  final _atpressController = TextEditingController(text: '1013.25');
+  final _attempController = TextEditingController(text: '15.0');
+
+  @override
+  void dispose() {
+    _atpressController.dispose();
+    _attempController.dispose();
+    super.dispose();
+  }
+
+  void _calculate() {
+    final atpress = double.tryParse(_atpressController.text);
+    if (atpress != null) {
+      ref.read(riseSetAtpressProvider.notifier).state = atpress;
+    }
+    final attemp = double.tryParse(_attempController.text);
+    if (attemp != null) {
+      ref.read(riseSetAttempProvider.notifier).state = attemp;
+    }
+    ref.read(riseSetCalcTriggerProvider.notifier).update((n) => n + 1);
+  }
+
+  void _toggleModifier(int bit, bool on) {
+    final current = ref.read(riseSetModifiersProvider);
+    ref.read(riseSetModifiersProvider.notifier).state =
+        on ? (current | bit) : (current & ~bit);
+  }
+
+  void _setTwilightMode(_TwilightMode mode) {
+    setState(() => _twilightMode = mode);
+    var mods = ref.read(riseSetModifiersProvider);
+    mods &= ~(rsBitCivilTwilight | rsBitNauticTwilight | rsBitAstroTwilight);
+    if (mode != _TwilightMode.none) mods |= mode.bit;
+    ref.read(riseSetModifiersProvider.notifier).state = mods;
+  }
+
+  bool _hasCalculated() => ref.watch(riseSetCalcTriggerProvider) > 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final body = ref.watch(riseSetBodyProvider);
+    final modifiers = ref.watch(riseSetModifiersProvider);
+    final result = ref.watch(riseSetResultProvider);
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Body chips ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Text('Body ', style: theme.textTheme.labelLarge),
+                const SizedBox(width: 4),
+                ..._bodies.map((b) => Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: ChoiceChip(
+                        label: Text(b.$2),
+                        selected: body == b.$1,
+                        onSelected: (_) =>
+                            ref.read(riseSetBodyProvider.notifier).state =
+                                b.$1,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        ),
+        // ── Modifier chips ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _ModifierChip(
+                  label: 'Disc Center', bit: rsBitDiscCenter,
+                  modifiers: modifiers, onToggle: _toggleModifier,
+                ),
+                const SizedBox(width: 4),
+                _ModifierChip(
+                  label: 'Disc Bottom', bit: rsBitDiscBottom,
+                  modifiers: modifiers, onToggle: _toggleModifier,
+                ),
+                const SizedBox(width: 4),
+                _ModifierChip(
+                  label: 'No Refraction', bit: rsBitNoRefraction,
+                  modifiers: modifiers, onToggle: _toggleModifier,
+                ),
+                const SizedBox(width: 4),
+                _ModifierChip(
+                  label: 'Hindu Rising', bit: rsBitHinduRising,
+                  modifiers: modifiers, onToggle: _toggleModifier,
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: _calculate,
+                  icon: const Icon(Icons.calculate, size: 16),
+                  label: const Text('Calculate'),
+                ),
+                const SizedBox(width: 4),
+                ExportButton(
+                  hasResults: _hasCalculated() && result != null,
+                  filenameStem: 'rise_set',
+                  getRows: () =>
+                      result != null ? riseSetToExportRows(result) : [],
+                ),
+              ],
+            ),
+          ),
+        ),
+        // ── Progressive disclosure: twilight + atmospheric params ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () =>
+                    setState(() => _showAtmospheric = !_showAtmospheric),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _showAtmospheric
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text('Twilight & Atmospheric Parameters',
+                          style: labelStyle, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+              ),
+              if (_showAtmospheric) ...[
+                const SizedBox(height: 4),
+                // Twilight selector
+                SegmentedButton<_TwilightMode>(
+                  segments: _TwilightMode.values
+                      .map(
+                          (m) => ButtonSegment(value: m, label: Text(m.label)))
+                      .toList(),
+                  selected: {_twilightMode},
+                  onSelectionChanged: (s) => _setTwilightMode(s.first),
+                  style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact),
+                ),
+                const SizedBox(height: 8),
+                // Atmospheric params with Expanded fields
+                Row(
+                  children: [
+                    Text('Pressure (hPa) ', style: labelStyle),
+                    Expanded(
+                      child: TextField(
+                        controller: _atpressController,
+                        style: theme.textTheme.bodySmall,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('Temp (°C) ', style: labelStyle),
+                    Expanded(
+                      child: TextField(
+                        controller: _attempController,
+                        style: theme.textTheme.bodySmall,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true, signed: true),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // ── Results ──
+        Expanded(
+          child: _hasCalculated()
+              ? _buildResults(result)
+              : _buildPlaceholder(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return const Center(
+      child: Text('Select a body and press Calculate'),
+    );
+  }
+
+  Widget _buildResults(RiseSetResult? result) {
+    if (result == null) {
+      return const Center(child: Text('No results'));
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = constraints.maxWidth > 900
+            ? 4
+            : constraints.maxWidth > 600
+                ? 2
+                : 1;
+        final cardWidth =
+            (constraints.maxWidth - 16 - (cols - 1) * 4) / cols;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(8),
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              _eventCard('Rise', result.riseJd, result.riseDateTime,
+                  result.riseFlag, result.riseError, cardWidth),
+              _eventCard('Set', result.setJd, result.setDateTime,
+                  result.setFlag, result.setError, cardWidth),
+              _eventCard('Upper Transit', result.upperTransitJd,
+                  result.upperTransitDateTime, result.upperTransitFlag,
+                  result.upperTransitError, cardWidth),
+              _eventCard('Lower Transit', result.lowerTransitJd,
+                  result.lowerTransitDateTime, result.lowerTransitFlag,
+                  result.lowerTransitError, cardWidth),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _eventCard(
+    String title,
+    double? jd,
+    RiseSetDateTime? dt,
+    int? flag,
+    String? error,
+    double cardWidth,
+  ) {
+    final fields = <ResultField>[];
+    final utcOffset = ref.read(contextBarProvider).utcOffset;
+
+    if (error != null) {
+      fields.add(ResultField(label: 'Error', value: error));
+    } else {
+      fields.add(ResultField(
+        label: 'JD',
+        value: jd != null ? jd.toStringAsFixed(8) : '—',
+        rawValue: jd,
+      ));
+      fields.add(ResultField(
+        label: 'Date/Time',
+        value: dt?.formattedWithLocal(utcOffset) ?? '—',
+      ));
+    }
+
+    return SizedBox(
+      width: cardWidth,
+      child: ResultCard(
+        title: title,
+        subtitle: 'riseTrans',
+        flagHex: flag != null
+            ? '0x${flag.toRadixString(16).toUpperCase()}'
+            : null,
+        fields: fields,
+      ),
+    );
+  }
+}
+
+// ── Helper widget ─────────────────────────────────────────────────────────────
+
+class _ModifierChip extends StatelessWidget {
+  const _ModifierChip({
+    required this.label,
+    required this.bit,
+    required this.modifiers,
+    required this.onToggle,
+  });
+
+  final String label;
+  final int bit;
+  final int modifiers;
+  final void Function(int bit, bool on) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: (modifiers & bit) != 0,
+      onSelected: (on) => onToggle(bit, on),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}

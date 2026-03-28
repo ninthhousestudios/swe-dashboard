@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'tab_definitions.dart';
 import 'responsive_layout.dart';
+import '../core/persistence.dart';
 import '../theme/theme_provider.dart';
 import '../widgets/context_bar/context_bar.dart';
 import '../core/context_provider.dart';
@@ -13,8 +14,25 @@ import '../tabs/planets/planets_provider.dart';
 import '../tabs/planets/planets_tab.dart';
 import '../tabs/houses/houses_tab.dart';
 import '../tabs/ayanamsa/ayanamsa_tab.dart';
+import '../tabs/dates/dates_tab.dart';
+import '../tabs/differential/differential_tab.dart';
+import '../tabs/math/math_tab.dart';
+import '../tabs/phenomena/phenomena_tab.dart';
+import '../tabs/nodes_apsides/nodes_apsides_tab.dart';
+import '../tabs/coordinates/coordinates_tab.dart';
+import '../tabs/rise_set/rise_set_tab.dart';
+import '../tabs/stars/stars_tab.dart';
+import '../tabs/crossings/crossings_tab.dart';
+import '../tabs/heliacal/heliacal_tab.dart';
+import '../tabs/eclipses/eclipses_tab.dart';
+import '../tabs/table_view/table_view_tab.dart';
+import '../tabs/table_view/table_view_provider.dart';
+import '../tabs/config/config_tab.dart';
 
-final selectedTabProvider = StateProvider<AppTab>((ref) => AppTab.planets);
+final selectedTabProvider = StateProvider<AppTab>((ref) {
+  final persistence = ref.read(persistenceProvider);
+  return persistence.loadTab();
+});
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -31,14 +49,24 @@ class _AppShellState extends ConsumerState<AppShell> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    // Restore persisted context bar state after the widget tree finishes building.
+    Future.microtask(() {
+      ref.read(contextBarProvider.notifier).restoreFromPersistence();
+    });
+
+    final initialTab = ref.read(selectedTabProvider);
+    final initialIndex = _allTabs.indexOf(initialTab);
+
     _tabController = TabController(
       length: _allTabs.length,
+      initialIndex: initialIndex >= 0 ? initialIndex : 0,
       vsync: this,
     );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        ref.read(selectedTabProvider.notifier).state =
-            _allTabs[_tabController.index];
+        final tab = _allTabs[_tabController.index];
+        ref.read(selectedTabProvider.notifier).state = tab;
+        ref.read(persistenceProvider).saveTab(tab);
       }
     });
   }
@@ -89,11 +117,13 @@ class _AppShellState extends ConsumerState<AppShell> with TickerProviderStateMix
             tooltip: 'Toggle theme',
             onPressed: () {
               final current = ref.read(themeProvider);
-              ref.read(themeProvider.notifier).state = switch (current) {
+              final next = switch (current) {
                 ThemeMode.dark => ThemeMode.light,
                 ThemeMode.light => ThemeMode.system,
                 _ => ThemeMode.dark,
               };
+              ref.read(themeProvider.notifier).state = next;
+              ref.read(persistenceProvider).saveTheme(next);
             },
           ),
         ],
@@ -203,6 +233,33 @@ class _AppShellState extends ConsumerState<AppShell> with TickerProviderStateMix
             ],
           );
         });
+      case AppTab.tableView:
+        return Consumer(builder: (context, ref, _) {
+          final format = ref.watch(tableViewFormatProvider);
+          final results = ref.watch(tableViewResultsProvider);
+          final bodies = ref.watch(tableViewBodiesProvider);
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<DisplayFormat>(
+                segments: DisplayFormat.values
+                    .map((f) => ButtonSegment(value: f, label: Text(f.label)))
+                    .toList(),
+                selected: {format},
+                onSelectionChanged: (s) =>
+                    ref.read(tableViewFormatProvider.notifier).state = s.first,
+                style: formatStyle,
+              ),
+              const SizedBox(width: 8),
+              ExportButton(
+                hasResults: results.isNotEmpty,
+                getRows: () =>
+                    tableViewToExportRows(results, bodies, format),
+                filenameStem: 'swe_table',
+              ),
+            ],
+          );
+        });
       default:
         return null;
     }
@@ -307,36 +364,23 @@ class _TabContent extends StatelessWidget {
       AppTab.planets => const PlanetsTab(),
       AppTab.houses => const HousesTab(),
       AppTab.ayanamsa => const AyanamsaTab(),
-      _ => _Placeholder(tab: tab),
+      AppTab.dates => const DatesTab(),
+      AppTab.differential => const DifferentialTab(),
+      AppTab.math => const MathTab(),
+      AppTab.phenomena => const PhenomenaTab(),
+      AppTab.nodesApsides => const NodesApsidesTab(),
+      AppTab.coordinates => const CoordinatesTab(),
+      AppTab.riseSet => const RiseSetTab(),
+      AppTab.stars => const StarsTab(),
+      AppTab.crossings => const CrossingsTab(),
+      AppTab.heliacal => const HeliacalTab(),
+      AppTab.eclipses => const EclipsesTab(),
+      AppTab.tableView => const TableViewTab(),
+      AppTab.config => const ConfigTab(),
     };
   }
 }
 
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.tab});
-  final AppTab tab;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(tab.icon, size: 64, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 16),
-          Text(tab.label, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Not implemented yet',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _MobileTabBar extends StatelessWidget {
   const _MobileTabBar({required this.selectedTab, required this.onSelected});

@@ -32,27 +32,28 @@ class FlagBar extends ConsumerWidget {
           bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
-      child: Row(
-        children: [
-          // Coordinate group (mutually exclusive)
-          FlagGroupWidget(
-            group: coordGroup,
-            selectedValue: flagState.coordValue,
-            onSelected: notifier.setCoordGroup,
-          ),
-          const SizedBox(width: 12),
-          // Vertical divider
-          SizedBox(
-            height: 24,
-            child: VerticalDivider(
-              width: 1,
-              color: Theme.of(context).dividerColor,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Coordinate group (mutually exclusive)
+            FlagGroupWidget(
+              group: coordGroup,
+              selectedValue: flagState.coordValue,
+              onSelected: notifier.setCoordGroup,
             ),
-          ),
-          const SizedBox(width: 12),
-          // Composable toggles
-          Expanded(
-            child: Wrap(
+            const SizedBox(width: 12),
+            // Vertical divider
+            SizedBox(
+              height: 24,
+              child: VerticalDivider(
+                width: 1,
+                color: Theme.of(context).dividerColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Composable toggles
+            Wrap(
               spacing: 4,
               runSpacing: 4,
               children: [
@@ -66,36 +67,36 @@ class FlagBar extends ConsumerWidget {
                   ..._lockedChips(context, flagState.lockedFlags),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          // Hex display + Calculate button
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
+            const SizedBox(width: 12),
+            // Hex display + Calculate button
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                flagState.hexDisplay,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontFamily: 'monospace',
+                      color: colors.onSurfaceVariant,
+                    ),
+              ),
             ),
-            child: Text(
-              flagState.hexDisplay,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontFamily: 'monospace',
-                    color: colors.onSurfaceVariant,
-                  ),
-            ),
-          ),
-          if (trailing != null) ...[
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              trailing!,
+            ],
             const SizedBox(width: 8),
-            trailing!,
+            FilledButton.icon(
+              onPressed: () {
+                ref.read(calcTriggerProvider.notifier).state++;
+              },
+              icon: const Icon(Icons.calculate, size: 18),
+              label: const Text('Calculate'),
+            ),
           ],
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: () {
-              ref.read(calcTriggerProvider.notifier).state++;
-            },
-            icon: const Icon(Icons.calculate, size: 18),
-            label: const Text('Calculate'),
-          ),
-        ],
+        ),
       ),
     );
   }
