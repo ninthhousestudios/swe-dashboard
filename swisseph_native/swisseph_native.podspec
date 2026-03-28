@@ -22,7 +22,7 @@ Pod::Spec.new do |s|
       root_uri = swisseph_pkg['rootUri']
       # rootUri may be relative to .dart_tool/ or absolute file:// URI
       if root_uri.start_with?('file://')
-        pkg_root = URI.decode(root_uri.sub('file://', ''))
+        pkg_root = URI::DEFAULT_PARSER.unescape(root_uri.sub('file://', ''))
       else
         pkg_root = File.expand_path(root_uri, File.dirname(pkg_config))
       end

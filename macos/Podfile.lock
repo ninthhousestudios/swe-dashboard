@@ -1,0 +1,34 @@
+PODS:
+  - file_saver (0.0.1):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - swisseph_native (0.0.1)
+
+DEPENDENCIES:
+  - file_saver (from `Flutter/ephemeral/.symlinks/plugins/file_saver/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - swisseph_native (from `../swisseph_native`)
+
+EXTERNAL SOURCES:
+  file_saver:
+    :path: Flutter/ephemeral/.symlinks/plugins/file_saver/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  shared_preferences_foundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
+  swisseph_native:
+    :path: "../swisseph_native"
+
+SPEC CHECKSUMS:
+  file_saver: 44e6fbf666677faf097302460e214e977fdd977b
+  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
+  swisseph_native: f1b0ee0b82b90365bce0ade2b431f2d3a7b5d2b3
+
+PODFILE CHECKSUM: f0e0be391e5ba147b87fb55d7ae575f5c1677680
+
+COCOAPODS: 1.16.2
