@@ -14,11 +14,18 @@ class NativeInitResult {
 
 /// Initialize ephemeris path and optionally preload SwissEph on native platforms.
 Future<NativeInitResult> initNativeEphePath() async {
-  // --- Desktop release build: ephe/ next to the executable ---
+  // --- Desktop release build: ephe/ near the executable ---
   final exeDir = File(Platform.resolvedExecutable).parent.path;
-  final releaseEphe = '$exeDir/data/ephe';
-  if (_isValidEpheDir(releaseEphe)) {
-    return NativeInitResult(ephePath: releaseEphe);
+  // Linux/Windows: data/ephe next to exe
+  // macOS .app bundle: Resources/flutter_assets/assets/ephe/
+  for (final candidate in [
+    '$exeDir/data/ephe',
+    '$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/ephe',
+    '$exeDir/../Resources/flutter_assets/assets/ephe',
+  ]) {
+    if (_isValidEpheDir(candidate)) {
+      return NativeInitResult(ephePath: candidate);
+    }
   }
 
   // --- Desktop dev mode: find swisseph package in pub cache ---
@@ -76,10 +83,20 @@ Future<NativeInitResult> initNativeEphePath() async {
 /// Create a SwissEph instance for desktop (release bundle or dev mode).
 SwissEph createDesktopSwissEph() {
   final exeDir = File(Platform.resolvedExecutable).parent.path;
-  for (final name in ['libswisseph.so', 'libswisseph.dylib']) {
-    final path = '$exeDir/lib/$name';
+
+  // Linux: lib/libswisseph.so next to the executable
+  // macOS: Frameworks/libswisseph.dylib inside the .app bundle
+  // Windows: swisseph.dll next to the executable (same dir, no lib/ subdir)
+  final candidates = [
+    '$exeDir/lib/libswisseph.so',
+    '$exeDir/lib/libswisseph.dylib',
+    '$exeDir/../Frameworks/libswisseph.dylib',
+    '$exeDir/swisseph.dll',
+  ];
+  for (final path in candidates) {
     if (File(path).existsSync()) return SwissEph(path);
   }
+
   return SwissEph.find();
 }
 
