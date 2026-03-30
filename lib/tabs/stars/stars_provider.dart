@@ -7,11 +7,131 @@ import '../../core/display_format.dart';
 import '../../core/export_service.dart';
 import '../../core/swe_service.dart';
 
-/// Common star names for quick selection.
+/// Common star names for quick-select chips.
 const commonStars = [
   'Aldebaran', 'Regulus', 'Spica', 'Antares', 'Fomalhaut',
   'Algol', 'Sirius', 'Canopus', 'Arcturus', 'Vega',
   'Capella', 'Rigel', 'Betelgeuse', 'Pollux',
+];
+
+/// Star catalog entry for autocomplete search.
+class StarCatalogEntry {
+  const StarCatalogEntry(this.commonName, this.bayerDesig);
+  final String commonName;
+  final String bayerDesig;
+
+  /// The search term to pass to fixstar2Ut for Bayer lookup.
+  String get bayerSearch => ',$bayerDesig';
+}
+
+/// Catalog of stars with common names and Bayer designations,
+/// sourced from sefstars.txt. Covers the major named stars.
+const starCatalog = [
+  StarCatalogEntry('Aldebaran', 'alTau'),
+  StarCatalogEntry('Algol', 'bePer'),
+  StarCatalogEntry('Antares', 'alSco'),
+  StarCatalogEntry('Regulus', 'alLeo'),
+  StarCatalogEntry('Sirius', 'alCMa'),
+  StarCatalogEntry('Spica', 'alVir'),
+  StarCatalogEntry('Arcturus', 'alBoo'),
+  StarCatalogEntry('Vega', 'alLyr'),
+  StarCatalogEntry('Capella', 'alAur'),
+  StarCatalogEntry('Rigel', 'bOri'),
+  StarCatalogEntry('Betelgeuse', 'alOri'),
+  StarCatalogEntry('Pollux', 'bGem'),
+  StarCatalogEntry('Canopus', 'alCar'),
+  StarCatalogEntry('Fomalhaut', 'alPsA'),
+  StarCatalogEntry('Deneb', 'alCyg'),
+  StarCatalogEntry('Altair', 'alAql'),
+  StarCatalogEntry('Castor', 'alGem'),
+  StarCatalogEntry('Procyon', 'alCMi'),
+  StarCatalogEntry('Achernar', 'alEri'),
+  StarCatalogEntry('Acrux', 'alCru'),
+  StarCatalogEntry('Polaris', 'alUMi'),
+  StarCatalogEntry('Mimosa', 'beCru'),
+  StarCatalogEntry('Hadar', 'beCen'),
+  StarCatalogEntry('Bellatrix', 'gOri'),
+  StarCatalogEntry('Alnilam', 'epOri'),
+  StarCatalogEntry('Alnitak', 'zeOri'),
+  StarCatalogEntry('Mintaka', 'deOri'),
+  StarCatalogEntry('Saiph', 'kaOri'),
+  StarCatalogEntry('Dubhe', 'alUMa'),
+  StarCatalogEntry('Merak', 'beUMa'),
+  StarCatalogEntry('Alioth', 'epUMa'),
+  StarCatalogEntry('Mizar', 'zeUMa'),
+  StarCatalogEntry('Alkaid', 'etUMa'),
+  StarCatalogEntry('Denebola', 'beLeo'),
+  StarCatalogEntry('Alphard', 'alHya'),
+  StarCatalogEntry('Rasalhague', 'alOph'),
+  StarCatalogEntry('Shaula', 'laScor'),
+  StarCatalogEntry('Sargas', 'thSco'),
+  StarCatalogEntry('Kaus Australis', 'epSgr'),
+  StarCatalogEntry('Nunki', 'siSgr'),
+  StarCatalogEntry('Algieba', 'gaLeo'),
+  StarCatalogEntry('Zubenelgenubi', 'alLib'),
+  StarCatalogEntry('Zubeneschamali', 'beLib'),
+  StarCatalogEntry('Unukalhai', 'alSer'),
+  StarCatalogEntry('Alphecca', 'alCrB'),
+  StarCatalogEntry('Dschubba', 'deSco'),
+  StarCatalogEntry('Sabik', 'etOph'),
+  StarCatalogEntry('Yed Prior', 'deOph'),
+  StarCatalogEntry('Yed Posterior', 'epOph'),
+  StarCatalogEntry('Scheat', 'bePeg'),
+  StarCatalogEntry('Markab', 'alPeg'),
+  StarCatalogEntry('Algenib', 'gaPeg'),
+  StarCatalogEntry('Alpheratz', 'alAnd'),
+  StarCatalogEntry('Mirach', 'beAnd'),
+  StarCatalogEntry('Almach', 'gaAnd'),
+  StarCatalogEntry('Hamal', 'alAri'),
+  StarCatalogEntry('Sheratan', 'beAri'),
+  StarCatalogEntry('Menkalinan', 'beAur'),
+  StarCatalogEntry('Alhena', 'gaGem'),
+  StarCatalogEntry('Wezen', 'deCMa'),
+  StarCatalogEntry('Adhara', 'epCMa'),
+  StarCatalogEntry('Aludra', 'etCMa'),
+  StarCatalogEntry('Naos', 'zePup'),
+  StarCatalogEntry('Suhail', 'laVel'),
+  StarCatalogEntry('Avior', 'epCar'),
+  StarCatalogEntry('Miaplacidus', 'beCar'),
+  StarCatalogEntry('Aspidiske', 'ioCar'),
+  StarCatalogEntry('Gacrux', 'gaCru'),
+  StarCatalogEntry('Rigil Kentaurus', 'alCen'),
+  StarCatalogEntry('Toliman', 'al2Cen'),
+  StarCatalogEntry('Agena', 'beCen'),
+  StarCatalogEntry('Kochab', 'beUMi'),
+  StarCatalogEntry('Eltanin', 'gaaDra'),
+  StarCatalogEntry('Thuban', 'alDra'),
+  StarCatalogEntry('Enif', 'epPeg'),
+  StarCatalogEntry('Sadalmelik', 'alAqr'),
+  StarCatalogEntry('Sadalsuud', 'beAqr'),
+  StarCatalogEntry('Deneb Algedi', 'deCap'),
+  StarCatalogEntry('Nashira', 'gaCap'),
+  StarCatalogEntry('Acubens', 'alCnc'),
+  StarCatalogEntry('Asellus Borealis', 'gaCnc'),
+  StarCatalogEntry('Asellus Australis', 'deCnc'),
+  StarCatalogEntry('Zaniah', 'etVir'),
+  StarCatalogEntry('Vindemiatrix', 'epVir'),
+  StarCatalogEntry('Algorab', 'deCrv'),
+  StarCatalogEntry('Gienah', 'gaCrv'),
+  StarCatalogEntry('Cor Caroli', 'alCVn'),
+  StarCatalogEntry('Zosma', 'deLeo'),
+  StarCatalogEntry('Chara', 'beCVn'),
+  StarCatalogEntry('Alderamin', 'alCep'),
+  StarCatalogEntry('Errai', 'gaCep'),
+  StarCatalogEntry('Diphda', 'beCet'),
+  StarCatalogEntry('Menkar', 'alCet'),
+  StarCatalogEntry('Mira', 'omiCet'),
+  StarCatalogEntry('Acamar', 'thEri'),
+  StarCatalogEntry('Ankaa', 'alPhe'),
+  StarCatalogEntry('Schedar', 'alCas'),
+  StarCatalogEntry('Caph', 'beCas'),
+  StarCatalogEntry('Ruchbah', 'deCas'),
+  StarCatalogEntry('Navi', 'gaCas'),
+  StarCatalogEntry('Peacock', 'alPav'),
+  StarCatalogEntry('Alnair', 'alGru'),
+  StarCatalogEntry('Formalhaut', 'alPsA'),
+  StarCatalogEntry('Al Niyat', 'si1Sco'),
+  StarCatalogEntry('Gal. Center', 'SgrA*'),
 ];
 
 /// Current star search term (name or catalog number).
@@ -64,11 +184,39 @@ final starResultProvider = Provider<StarResult?>((ref) {
 
   try {
     final flags = ectx.iflag | seFlgSpeed;
-    final r = swe.fixstar2Ut(term, ectx.jdUt, flags);
+    var r = swe.fixstar2Ut(term, ectx.jdUt, flags);
 
+    // swisseph silently returns the first star (Aldebaran) when a search
+    // doesn't match. Detect this by checking if the resolved name contains
+    // what the user typed. If not, retry as a Bayer designation (leading
+    // comma). If that also mismatches, return null.
+    final termLower = term.toLowerCase();
+    final bayerTerm = term.startsWith(',') ? term.substring(1) : term;
+    bool nameMatches(String resolved) {
+      final lower = resolved.toLowerCase();
+      return lower.contains(termLower) ||
+          lower.contains(bayerTerm.toLowerCase());
+    }
+
+    if (!nameMatches(r.starName)) {
+      // Retry as Bayer designation search.
+      if (!term.startsWith(',')) {
+        try {
+          r = swe.fixstar2Ut(',$term', ectx.jdUt, flags);
+        } on SweException {
+          return null;
+        }
+      }
+      // If still no match, the star wasn't found.
+      if (!nameMatches(r.starName)) {
+        return null;
+      }
+    }
+
+    final searchForMag = r.starName.split(',').first.trim();
     double magnitude;
     try {
-      magnitude = swe.fixstar2Mag(term);
+      magnitude = swe.fixstar2Mag(searchForMag);
     } catch (_) {
       magnitude = double.nan;
     }

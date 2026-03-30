@@ -10,8 +10,10 @@ import '../model/chart_data.dart';
 /// Sentinel lines: `~end of notes~` and `~end of muhurtas~`.
 class ChtkFormat {
   /// Read a .chtk file and return a [ChartData].
-  static ChartData read(String filePath) {
-    final bytes = File(filePath).readAsBytesSync();
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  /// Read from raw bytes.
+  static ChartData readBytes(Uint8List bytes) {
     final content = _decodeUtf16Le(bytes);
     final lines =
         content.split(RegExp(r'\r?\n')).map((l) => l.trim()).toList();

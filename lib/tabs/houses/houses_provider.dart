@@ -5,6 +5,7 @@ import '../../core/calc_context.dart';
 import '../../core/calc_trigger.dart';
 import '../../core/display_format.dart';
 import '../../core/export_service.dart';
+import '../../core/persistence.dart';
 import '../../core/swe_service.dart';
 
 /// Display format for Houses tab (promoted from local state).
@@ -70,8 +71,10 @@ final houseSystems = <HouseSystemDef>[
   HouseSystemDef(0x51, 'Pullen SR'),          // Q
 ];
 
-/// Selected house system.
-final selectedHouseSystemProvider = StateProvider<int>((ref) => 0x50); // Placidus
+/// Selected house system (persisted).
+final selectedHouseSystemProvider = StateProvider<int>((ref) {
+  return ref.read(persistenceProvider).loadHouseSystem();
+});
 
 /// Houses calculation result.
 final housesResultProvider = Provider<HousesCalcResult?>((ref) {

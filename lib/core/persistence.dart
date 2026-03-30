@@ -144,6 +144,16 @@ class PersistenceService {
       orElse: () => AppTab.planets,
     );
   }
+
+  // ── House System ──
+
+  void saveHouseSystem(int code) {
+    _prefs.setInt('houses_hsys', code);
+  }
+
+  int loadHouseSystem() {
+    return _prefs.getInt('houses_hsys') ?? 0x50; // Placidus default
+  }
 }
 
 /// Provider for PersistenceService — reads the SharedPreferences provider.

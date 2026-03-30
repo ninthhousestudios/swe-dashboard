@@ -16,6 +16,7 @@ enum AppTab {
   heliacal('Heliacal', Icons.visibility, hasFlags: false, isMore: true),
   phenomena('Phenomena', Icons.lens_blur, hasFlags: true, isMore: true),
   differential('Differential', Icons.difference, hasFlags: true, isMore: true),
+  planetocentric('Planetocentric', Icons.language, hasFlags: true, isMore: true),
   math('Math', Icons.functions, hasFlags: false, isMore: true),
   config('Config', Icons.settings, hasFlags: false, isMore: true);
 

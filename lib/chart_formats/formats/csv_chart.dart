@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../model/chart_data.dart';
 
@@ -7,8 +8,11 @@ class CsvChartFormat {
   static const _header =
       'name,date,time,utc_offset,dst_offset,city,country,latitude,longitude,gender,rodden_rating';
 
-  static List<ChartData> readAll(String filePath) {
-    final lines = File(filePath).readAsLinesSync();
+  static List<ChartData> readAll(String filePath) =>
+      readAllBytes(File(filePath).readAsBytesSync());
+
+  static List<ChartData> readAllBytes(Uint8List bytes) {
+    final lines = String.fromCharCodes(bytes).split(RegExp(r'\r?\n'));
     if (lines.isEmpty) return [];
 
     final start = lines[0].startsWith('name') ? 1 : 0;
@@ -52,10 +56,12 @@ class CsvChartFormat {
     File(filePath).writeAsStringSync(sb.toString());
   }
 
-  static ChartData read(String filePath) {
-    final charts = readAll(filePath);
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  static ChartData readBytes(Uint8List bytes) {
+    final charts = readAllBytes(bytes);
     if (charts.isEmpty) {
-      throw FormatException('No chart data found in $filePath');
+      throw const FormatException('No chart data found');
     }
     return charts.first;
   }

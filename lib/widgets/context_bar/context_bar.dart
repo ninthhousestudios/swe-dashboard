@@ -1,3 +1,5 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import '../../core/context_provider.dart';
 import '../chart-file-dialog.dart';
 import '../../core/jd_utils.dart';
 import '../../core/swe_service.dart';
+import '../../layout/responsive_layout.dart';
 import 'origin_selector.dart';
 import 'zodiac_ref_selector.dart';
 import 'eq_ref_selector.dart';
@@ -28,6 +31,8 @@ class ContextBar extends ConsumerStatefulWidget {
 }
 
 class _ContextBarState extends ConsumerState<ContextBar> {
+  bool _mobileExpanded = true;
+
   // Controllers and focus nodes for all text fields
   final _date = TextEditingController();
   final _time = TextEditingController();
@@ -369,7 +374,12 @@ class _ContextBarState extends ConsumerState<ContextBar> {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       );
 
-  TextStyle? get _fieldStyle => Theme.of(context).textTheme.bodySmall;
+  TextStyle? get _fieldStyle {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    return isMobile
+        ? Theme.of(context).textTheme.bodyMedium
+        : Theme.of(context).textTheme.bodySmall;
+  }
 
   InputDecoration _deco(String hint) => InputDecoration(
         isDense: true,
@@ -422,10 +432,52 @@ class _ContextBarState extends ConsumerState<ContextBar> {
   bool _selfUpdate = false;
 
   Future<void> _openChart() async {
+    final useFilePicker = kIsWeb || ResponsiveLayout.of(context) == ScreenSize.mobile;
+
+    if (useFilePicker) {
+      await _openChartWithPicker();
+    } else {
+      await _openChartWithDialog();
+    }
+  }
+
+  Future<void> _openChartWithDialog() async {
     final path = await ChartFileDialog.show(context);
     if (path == null || !mounted) return;
     try {
       final chart = ChartIO.read(path);
+      ref.read(contextBarProvider.notifier).loadFromChart(chart);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Loaded: ${chart.name}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading chart: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openChartWithPicker() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ChartIO.pickerExtensions,
+        withData: true,
+      );
+      if (result == null || !mounted) return;
+      final file = result.files.single;
+      if (file.bytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not read file data')),
+        );
+        return;
+      }
+      final chart = ChartIO.readBytes(file.bytes!, file.name);
       ref.read(contextBarProvider.notifier).loadFromChart(chart);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -453,19 +505,8 @@ class _ContextBarState extends ConsumerState<ContextBar> {
     // Initial sync on first build.
     if (_date.text.isEmpty) _sync();
 
-    final sectionLabel = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        );
-
-    final numFmt = FilteringTextInputFormatter.allow(RegExp(r'[\d.+-]'));
-
     final screenWidth = MediaQuery.sizeOf(context).width;
-    // Minimum width the context bar needs to avoid overflow.
-    // At 200% zoom, textScaler is 2.0 but the screen pixels stay the same,
-    // so we ensure the bar is at least as wide as the unscaled layout.
-    final minBarWidth = 1000.0 * MediaQuery.textScalerOf(context).scale(1.0);
+    final isMobile = screenWidth < 600;
 
     return Container(
       width: double.infinity,
@@ -475,146 +516,328 @@ class _ContextBarState extends ConsumerState<ContextBar> {
           bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: SizedBox(
-          width: minBarWidth.clamp(screenWidth - 32, double.infinity),
-          child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Left: Time & Place ──
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text('TIME & PLACE', style: sectionLabel),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: const Icon(Icons.folder_open, size: 14),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 24, minHeight: 24),
-                        tooltip: 'Open chart file',
-                        onPressed: _openChart,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: _rowGap),
-                  // Row 1: Date | Time | UTC | JD [now]
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _labeled('Date', _date, _dateFocus,
-                            hint: 'YYYY-MM-DD',
-                            onCommit: _commitDate,
-                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d-]'))],
-                            trailing: _iconBtn(Icons.calendar_today, 'Pick date', _pickDate)),
-                      ),
-                      SizedBox(width: _colGap),
-                      Expanded(
-                        child: _labeled('Time', _time, _timeFocus,
-                            hint: 'HH:MM:SS',
-                            onCommit: _commitTime,
-                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d:]'))],
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _iconBtn(Icons.update, 'Set to now', () {
-                                  ref.read(contextBarProvider.notifier).setNow();
-                                }),
-                                _iconBtn(Icons.access_time, 'Pick time', _pickTime),
-                              ],
-                            )),
-                      ),
-                      SizedBox(width: _colGap),
-                      Expanded(
-                        child: _utcOffsetField(),
-                      ),
-                      SizedBox(width: _colGap),
-                      Expanded(
-                        child: _labeled('JD (UT)', _jd, _jdFocus,
-                            hint: '2460000.0',
-                            onCommit: _commitJd,
-                            formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))]),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: _rowGap),
-                  // Row 2: Lat | Lon | Alt | City
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _labeled('Lat', _lat, _latFocus,
-                            hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
-                      ),
-                      SizedBox(width: _colGap),
-                      Expanded(
-                        child: _labeled('Lon', _lon, _lonFocus,
-                            hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
-                      ),
-                      SizedBox(width: _colGap),
-                      Expanded(
-                        child: _labeled('Alt', _alt, _altFocus,
-                            hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
-                      ),
-                      SizedBox(width: _colGap),
-                      Expanded(
-                        child: _labeled('City', _city, _cityFocus,
-                            hint: 'City', onCommit: _commitLocation),
-                      ),
-                    ],
-                  ),
-                ],
+      child: isMobile ? _buildMobileLayout() : _buildDesktopLayout(screenWidth),
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    final theme = Theme.of(context);
+    final ctx = ref.watch(contextBarProvider);
+    final local = _jdUtils.applyUtcOffset(ctx.dateTime, ctx.utcOffset);
+    final summaryStyle = theme.textTheme.bodySmall;
+
+    if (!_mobileExpanded) {
+      // ── Collapsed: single-line summary ──
+      return InkWell(
+        onTap: () => setState(() => _mobileExpanded = true),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(Icons.expand_more, size: 18, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${_p(local.year, 4)}-${_p(local.month, 2)}-${_p(local.day, 2)}  '
+                  '${_p(local.hour, 2)}:${_p(local.minute, 2)}:${_p(local.second, 2)}  '
+                  '${_fmtOffset(ctx.utcOffset)}  '
+                  '${_fmtCoord(ctx.latitude)}, ${_fmtCoord(ctx.longitude)}',
+                  style: summaryStyle,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            // ── Divider ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: VerticalDivider(
-                width: 1,
-                thickness: 1,
-                color: Theme.of(context).dividerColor,
-              ),
-            ),
-            // ── Right: Options ──
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('OPTIONS', style: sectionLabel),
-                  SizedBox(height: _rowGap),
-                  // Row 1: Origin | Zodiac | Eq. Ref
-                  const Row(
-                    children: [
-                      Expanded(child: OriginSelector()),
-                      SizedBox(width: _colGap),
-                      Expanded(child: ZodiacRefSelector()),
-                      SizedBox(width: _colGap),
-                      Expanded(child: EqRefSelector()),
-                    ],
-                  ),
-                  SizedBox(height: _rowGap),
-                  // Row 2: Ayanamsa | Ephe | (empty)
-                  const Row(
-                    children: [
-                      Expanded(child: AyanamsaSelector()),
-                      SizedBox(width: _colGap),
-                      Expanded(child: EpheSourceSelector()),
-                      SizedBox(width: _colGap),
-                      Expanded(child: SizedBox.shrink()),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
+      );
+    }
+
+    // ── Expanded: full editing layout ──
+    final numFmt = FilteringTextInputFormatter.allow(RegExp(r'[\d.+-]'));
+    final sectionLabel = theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header with collapse toggle ──
+          Row(
+            children: [
+              InkWell(
+                onTap: () => setState(() => _mobileExpanded = false),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.expand_less, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text('TIME & PLACE', style: sectionLabel),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.folder_open, size: 14),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                tooltip: 'Open chart file',
+                onPressed: _openChart,
+              ),
+              const Spacer(),
+              _iconBtn(Icons.update, 'Set to now', () {
+                ref.read(contextBarProvider.notifier).setNow();
+              }),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Date | Time
+          Row(
+            children: [
+              Expanded(
+                child: _labeled('Date', _date, _dateFocus,
+                    hint: 'YYYY-MM-DD',
+                    onCommit: _commitDate,
+                    formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d-]'))],
+                    trailing: _iconBtn(Icons.calendar_today, 'Pick date', _pickDate)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _labeled('Time', _time, _timeFocus,
+                    hint: 'HH:MM:SS',
+                    onCommit: _commitTime,
+                    formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d:]'))],
+                    trailing: _iconBtn(Icons.access_time, 'Pick time', _pickTime)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // UTC | JD
+          Row(
+            children: [
+              Expanded(child: _utcOffsetField()),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _labeled('JD (UT)', _jd, _jdFocus,
+                    hint: '2460000.0',
+                    onCommit: _commitJd,
+                    formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Lat | Lon
+          Row(
+            children: [
+              Expanded(
+                child: _labeled('Lat', _lat, _latFocus,
+                    hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _labeled('Lon', _lon, _lonFocus,
+                    hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Alt | City
+          Row(
+            children: [
+              Expanded(
+                child: _labeled('Alt', _alt, _altFocus,
+                    hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _labeled('City', _city, _cityFocus,
+                    hint: 'City', onCommit: _commitLocation),
+              ),
+            ],
+          ),
+          const Divider(height: 12),
+          // ── OPTIONS ──
+          Text('OPTIONS', style: sectionLabel),
+          const SizedBox(height: 4),
+          const Row(
+            children: [
+              Expanded(child: OriginSelector()),
+              SizedBox(width: 8),
+              Expanded(child: ZodiacRefSelector()),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Row(
+            children: [
+              Expanded(child: EqRefSelector()),
+              SizedBox(width: 8),
+              Expanded(child: AyanamsaSelector()),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Row(
+            children: [
+              Expanded(child: EpheSourceSelector()),
+              SizedBox(width: 8),
+              Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
       ),
-      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(double screenWidth) {
+    final numFmt = FilteringTextInputFormatter.allow(RegExp(r'[\d.+-]'));
+    final sectionLabel = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        );
+    final minBarWidth = 1000.0 * MediaQuery.textScalerOf(context).scale(1.0);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SizedBox(
+        width: minBarWidth.clamp(screenWidth - 32, double.infinity),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Left: Time & Place ──
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('TIME & PLACE', style: sectionLabel),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.folder_open, size: 14),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 24, minHeight: 24),
+                          tooltip: 'Open chart file',
+                          onPressed: _openChart,
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: _rowGap),
+                    // Row 1: Date | Time | UTC | JD [now]
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _labeled('Date', _date, _dateFocus,
+                              hint: 'YYYY-MM-DD',
+                              onCommit: _commitDate,
+                              formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d-]'))],
+                              trailing: _iconBtn(Icons.calendar_today, 'Pick date', _pickDate)),
+                        ),
+                        SizedBox(width: _colGap),
+                        Expanded(
+                          child: _labeled('Time', _time, _timeFocus,
+                              hint: 'HH:MM:SS',
+                              onCommit: _commitTime,
+                              formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d:]'))],
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _iconBtn(Icons.update, 'Set to now', () {
+                                    ref.read(contextBarProvider.notifier).setNow();
+                                  }),
+                                  _iconBtn(Icons.access_time, 'Pick time', _pickTime),
+                                ],
+                              )),
+                        ),
+                        SizedBox(width: _colGap),
+                        Expanded(
+                          child: _utcOffsetField(),
+                        ),
+                        SizedBox(width: _colGap),
+                        Expanded(
+                          child: _labeled('JD (UT)', _jd, _jdFocus,
+                              hint: '2460000.0',
+                              onCommit: _commitJd,
+                              formatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))]),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: _rowGap),
+                    // Row 2: Lat | Lon | Alt | City
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _labeled('Lat', _lat, _latFocus,
+                              hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+                        ),
+                        SizedBox(width: _colGap),
+                        Expanded(
+                          child: _labeled('Lon', _lon, _lonFocus,
+                              hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+                        ),
+                        SizedBox(width: _colGap),
+                        Expanded(
+                          child: _labeled('Alt', _alt, _altFocus,
+                              hint: '0', onCommit: _commitLocation, formatters: [numFmt]),
+                        ),
+                        SizedBox(width: _colGap),
+                        Expanded(
+                          child: _labeled('City', _city, _cityFocus,
+                              hint: 'City', onCommit: _commitLocation),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // ── Divider ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: Theme.of(context).dividerColor,
+                ),
+              ),
+              // ── Right: Options ──
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('OPTIONS', style: sectionLabel),
+                    SizedBox(height: _rowGap),
+                    // Row 1: Origin | Zodiac | Eq. Ref
+                    const Row(
+                      children: [
+                        Expanded(child: OriginSelector()),
+                        SizedBox(width: _colGap),
+                        Expanded(child: ZodiacRefSelector()),
+                        SizedBox(width: _colGap),
+                        Expanded(child: EqRefSelector()),
+                      ],
+                    ),
+                    SizedBox(height: _rowGap),
+                    // Row 2: Ayanamsa | Ephe | (empty)
+                    const Row(
+                      children: [
+                        Expanded(child: AyanamsaSelector()),
+                        SizedBox(width: _colGap),
+                        Expanded(child: EpheSourceSelector()),
+                        SizedBox(width: _colGap),
+                        Expanded(child: SizedBox.shrink()),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

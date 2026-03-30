@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:path/path.dart' as p;
 
 import 'model/chart_data.dart';
@@ -27,6 +29,10 @@ class ChartIO {
     '.qck': 'Quick*Chart (Solar Fire / Astrolog interchange)',
   };
 
+  /// File extension filter strings for file_picker.
+  static final pickerExtensions =
+      supportedExtensions.map((e) => e.substring(1)).toList();
+
   /// Read a chart from any supported format.
   static ChartData read(String filePath) {
     final ext = p.extension(filePath).toLowerCase();
@@ -39,6 +45,22 @@ class ChartIO {
       '.csv' => CsvChartFormat.read(filePath),
       '.toml' => TomlChartFormat.read(filePath),
       '.qck' => QckFormat.read(filePath),
+      _ => throw UnsupportedError('Unknown chart format: $ext'),
+    };
+  }
+
+  /// Read a chart from raw bytes + filename (for web / mobile file picker).
+  static ChartData readBytes(Uint8List bytes, String fileName) {
+    final ext = p.extension(fileName).toLowerCase();
+    return switch (ext) {
+      '.chtk' => ChtkFormat.readBytes(bytes),
+      '.jhd' => JhdFormat.readBytes(bytes),
+      '.aaf' => AafFormat.readBytes(bytes),
+      '.as' => AstrologFormat.readBytes(bytes),
+      '.json' => JsonChartFormat.readBytes(bytes),
+      '.csv' => CsvChartFormat.readBytes(bytes),
+      '.toml' => TomlChartFormat.readBytes(bytes),
+      '.qck' => QckFormat.readBytes(bytes),
       _ => throw UnsupportedError('Unknown chart format: $ext'),
     };
   }

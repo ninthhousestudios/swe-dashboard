@@ -28,6 +28,8 @@ import '../tabs/eclipses/eclipses_tab.dart';
 import '../tabs/table_view/table_view_tab.dart';
 import '../tabs/table_view/table_view_provider.dart';
 import '../tabs/config/config_tab.dart';
+import '../tabs/planetocentric/planetocentric_tab.dart';
+import '../tabs/planetocentric/planetocentric_provider.dart';
 
 final selectedTabProvider = StateProvider<AppTab>((ref) {
   final persistence = ref.read(persistenceProvider);
@@ -260,6 +262,32 @@ class _AppShellState extends ConsumerState<AppShell> with TickerProviderStateMix
             ],
           );
         });
+      case AppTab.planetocentric:
+        return Consumer(builder: (context, ref, _) {
+          final format = ref.watch(planetocentricFormatProvider);
+          final results = ref.watch(planetocentricResultsProvider);
+          final jd = ref.watch(contextBarProvider).jdUt;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<DisplayFormat>(
+                segments: DisplayFormat.values
+                    .map((f) => ButtonSegment(value: f, label: Text(f.label)))
+                    .toList(),
+                selected: {format},
+                onSelectionChanged: (s) =>
+                    ref.read(planetocentricFormatProvider.notifier).state = s.first,
+                style: formatStyle,
+              ),
+              const SizedBox(width: 8),
+              ExportButton(
+                hasResults: results.isNotEmpty,
+                getRows: () => planetocentricToExportRows(results, format),
+                filenameStem: 'swe_planetocentric_${jd.toStringAsFixed(4)}',
+              ),
+            ],
+          );
+        });
       default:
         return null;
     }
@@ -376,29 +404,120 @@ class _TabContent extends StatelessWidget {
       AppTab.heliacal => const HeliacalTab(),
       AppTab.eclipses => const EclipsesTab(),
       AppTab.tableView => const TableViewTab(),
+      AppTab.planetocentric => const PlanetoCentricTab(),
       AppTab.config => const ConfigTab(),
     };
   }
 }
 
 
-class _MobileTabBar extends StatelessWidget {
+class _MobileTabBar extends StatefulWidget {
   const _MobileTabBar({required this.selectedTab, required this.onSelected});
   final AppTab selectedTab;
   final ValueChanged<AppTab> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    // Show first 4 primary tabs + "more" on mobile
-    final mobileTabs = AppTab.primaryTabs.take(4).toList();
-    final selectedIndex = mobileTabs.indexOf(selectedTab);
+  State<_MobileTabBar> createState() => _MobileTabBarState();
+}
 
-    return NavigationBar(
-      selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
-      onDestinationSelected: (i) => onSelected(mobileTabs[i]),
-      destinations: mobileTabs
-          .map((t) => NavigationDestination(icon: Icon(t.icon), label: t.label))
-          .toList(),
+class _MobileTabBarState extends State<_MobileTabBar> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+  }
+
+  @override
+  void didUpdateWidget(_MobileTabBar old) {
+    super.didUpdateWidget(old);
+    if (old.selectedTab != widget.selectedTab) {
+      _scrollToSelected();
+    }
+  }
+
+  void _scrollToSelected() {
+    final idx = AppTab.values.indexOf(widget.selectedTab);
+    if (idx < 0 || !_scrollController.hasClients) return;
+    // Each item is ~72px wide; scroll to center it
+    const itemWidth = 72.0;
+    final viewWidth = _scrollController.position.viewportDimension;
+    final target = (idx * itemWidth - viewWidth / 2 + itemWidth / 2)
+        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    _scrollController.animateTo(target,
+        duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final allTabs = AppTab.values;
+    final dividerIndex = AppTab.primaryTabs.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainer,
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            itemCount: allTabs.length + 1, // +1 for divider
+            itemBuilder: (context, i) {
+              if (i == dividerIndex) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
+                  child: VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: theme.dividerColor,
+                  ),
+                );
+              }
+              final tabIndex = i < dividerIndex ? i : i - 1;
+              final tab = allTabs[tabIndex];
+              final selected = tab == widget.selectedTab;
+              final color = selected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant;
+
+              return InkWell(
+                onTap: () => widget.onSelected(tab),
+                child: SizedBox(
+                  width: 72,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(tab.icon, size: 20, color: color),
+                      const SizedBox(height: 2),
+                      Text(
+                        tab.label,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: color,
+                          fontWeight: selected ? FontWeight.w600 : null,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }

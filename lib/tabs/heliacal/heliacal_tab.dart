@@ -6,6 +6,7 @@ import '../../core/context_provider.dart';
 import '../../core/swe_service.dart';
 import '../../widgets/export_button.dart';
 import '../../widgets/result_card.dart';
+import '../stars/stars_provider.dart' show StarCatalogEntry, starCatalog;
 import 'heliacal_provider.dart';
 
 const _eventTypes = [
@@ -35,8 +36,10 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
   bool _hasCalculated = false;
   bool _showAtmospheric = false;
   bool _showStarInput = false;
+  List<StarCatalogEntry> _starSuggestions = [];
 
   late final TextEditingController _starController;
+  final _starFocusNode = FocusNode();
   late final TextEditingController _pressureController;
   late final TextEditingController _temperatureController;
   late final TextEditingController _humidityController;
@@ -48,6 +51,12 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
   void initState() {
     super.initState();
     _starController = TextEditingController();
+    _starController.addListener(_onStarChanged);
+    _starFocusNode.addListener(() {
+      if (!_starFocusNode.hasFocus) {
+        setState(() => _starSuggestions = []);
+      }
+    });
     _pressureController = TextEditingController(text: '1013.25');
     _temperatureController = TextEditingController(text: '25.0');
     _humidityController = TextEditingController(text: '50.0');
@@ -58,7 +67,9 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
 
   @override
   void dispose() {
+    _starController.removeListener(_onStarChanged);
     _starController.dispose();
+    _starFocusNode.dispose();
     _pressureController.dispose();
     _temperatureController.dispose();
     _humidityController.dispose();
@@ -66,6 +77,31 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
     _ageController.dispose();
     _snellenController.dispose();
     super.dispose();
+  }
+
+  void _onStarChanged() {
+    final q = _starController.text.trim();
+    if (q.isEmpty) {
+      setState(() => _starSuggestions = []);
+      return;
+    }
+    final lower = q.toLowerCase();
+    final bayerQ = lower.startsWith(',') ? lower.substring(1) : lower;
+    setState(() {
+      _starSuggestions = starCatalog.where((e) {
+        return e.commonName.toLowerCase().contains(lower) ||
+            e.bayerDesig.toLowerCase().contains(bayerQ);
+      }).toList();
+    });
+  }
+
+  void _selectStarSuggestion(StarCatalogEntry entry) {
+    _starController.text = entry.commonName;
+    _starController.selection = TextSelection.collapsed(
+      offset: entry.commonName.length,
+    );
+    ref.read(heliacalStarProvider.notifier).state = entry.commonName;
+    setState(() => _starSuggestions = []);
   }
 
   void _selectBody(String name) {
@@ -168,24 +204,63 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
+                    Text('Star ', style: theme.textTheme.labelLarge),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: TextField(
-                        controller: _starController,
-                        style: theme.textTheme.bodySmall,
-                        decoration: const InputDecoration(
-                          hintText: 'e.g. Aldebaran, Sirius',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        ),
-                        onSubmitted: (v) {
-                          if (v.trim().isNotEmpty) {
-                            ref.read(heliacalStarProvider.notifier).state =
-                                v.trim();
-                            _calculate();
-                          }
-                        },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _starController,
+                            focusNode: _starFocusNode,
+                            style: theme.textTheme.bodyLarge,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Star name or Bayer designation (e.g. Spica, alVir)',
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(),
+                            ),
+                            onSubmitted: (v) {
+                              if (v.trim().isNotEmpty) {
+                                ref.read(heliacalStarProvider.notifier).state =
+                                    v.trim();
+                                _calculate();
+                              }
+                            },
+                          ),
+                          if (_starSuggestions.isNotEmpty)
+                            Material(
+                              elevation: 4,
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxHeight: 200),
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  itemCount: _starSuggestions.length,
+                                  itemBuilder: (context, index) {
+                                    final entry = _starSuggestions[index];
+                                    return ListTile(
+                                      dense: true,
+                                      title: Text(entry.commonName),
+                                      trailing: Text(
+                                        entry.bayerDesig,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      onTap: () =>
+                                          _selectStarSuggestion(entry),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -195,13 +270,27 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        // ── Event type chips + Calculate + Export ──
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                Text('Event ', style: theme.textTheme.labelLarge),
+                const SizedBox(width: 4),
+                ..._eventTypes.map((e) => Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: ChoiceChip(
+                        label: Text(e.$2),
+                        selected: eventType == e.$1,
+                        onSelected: (_) => ref
+                            .read(heliacalEventTypeProvider.notifier)
+                            .state = e.$1,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    )),
+                const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: _calculate,
                   icon: const Icon(Icons.visibility, size: 16),
@@ -220,30 +309,6 @@ class _HeliacalTabState extends ConsumerState<HeliacalTab> {
                     filenameStem: 'swe_heliacal_${jd.toStringAsFixed(4)}',
                   );
                 }),
-              ],
-            ),
-          ),
-        ),
-        // ── Event type chips ──
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                Text('Event ', style: theme.textTheme.labelLarge),
-                const SizedBox(width: 4),
-                ..._eventTypes.map((e) => Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: ChoiceChip(
-                        label: Text(e.$2),
-                        selected: eventType == e.$1,
-                        onSelected: (_) => ref
-                            .read(heliacalEventTypeProvider.notifier)
-                            .state = e.$1,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    )),
               ],
             ),
           ),

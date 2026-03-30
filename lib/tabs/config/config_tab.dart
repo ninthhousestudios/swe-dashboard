@@ -16,55 +16,6 @@ class ConfigTab extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Library info card ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Swiss Ephemeris Library',
-                      style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  _infoRow(theme, 'Version', info.version),
-                  const SizedBox(height: 4),
-                  _infoRow(theme, 'Dart Package', 'swisseph 0.3.0'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ── Known bodies card ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Known Bodies', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${info.bodies.length} bodies enumerated',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: info.bodies.map((b) {
-                      return Chip(
-                        label: Text('${b.$2} (${b.$1})'),
-                        visualDensity: VisualDensity.compact,
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           // ── About card ──
           Card(
             child: Padding(
@@ -84,6 +35,46 @@ class ConfigTab extends ConsumerWidget {
                   Text(
                     'All calculations use the Swiss Ephemeris C library '
                     'via FFI through the swisseph.dart package.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── Library info card ──
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Swiss Ephemeris Library',
+                      style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  _infoRow(theme, 'Version', info.version),
+                  const SizedBox(height: 4),
+                  _infoRow(theme, 'Dart Package', 'swisseph 0.4.4'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── v2 note ──
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Coming in v2', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ephemeris file viewer and manager — browse, download, '
+                    'and manage Swiss Ephemeris data files (.se1) for '
+                    'extended date ranges and precision.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

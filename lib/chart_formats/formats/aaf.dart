@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../model/chart_data.dart';
 
@@ -7,8 +8,10 @@ import '../model/chart_data.dart';
 /// Plain text, chunk-based. Each chunk starts at column 0 with `#` + chunk ID
 /// followed by `:` and comma-separated fields.
 class AafFormat {
-  static ChartData read(String filePath) {
-    final lines = File(filePath).readAsLinesSync();
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  static ChartData readBytes(Uint8List bytes) {
+    final lines = String.fromCharCodes(bytes).split(RegExp(r'\r?\n'));
     String lastName = '';
     String firstName = '';
     Gender? gender;

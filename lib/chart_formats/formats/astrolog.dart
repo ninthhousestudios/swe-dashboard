@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../model/chart_data.dart';
 
@@ -8,8 +9,10 @@ import '../model/chart_data.dart';
 /// The key switch is `-qa` which carries all birth data.
 /// Zone: positive = west of UTC, negative = east (US convention).
 class AstrologFormat {
-  static ChartData read(String filePath) {
-    final lines = File(filePath).readAsLinesSync();
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  static ChartData readBytes(Uint8List bytes) {
+    final lines = String.fromCharCodes(bytes).split(RegExp(r'\r?\n'));
 
     int month = 1, day = 1, year = 2000, hour = 0, minute = 0;
     double utcOffset = 0.0;
@@ -69,7 +72,7 @@ class AstrologFormat {
     }
 
     return ChartData(
-      name: name ?? _nameFromPath(filePath),
+      name: name ?? 'Chart',
       dateTime: DateTime(year, month, day, hour, minute),
       birthLocation: GeoLocation(
         latitude: latitude,
@@ -115,10 +118,5 @@ class AstrologFormat {
     final deg = abs.floor();
     final min = ((abs - deg) * 60).round();
     return '${negative ? '-' : ''}$deg:${min.toString().padLeft(2, '0')}';
-  }
-
-  static String _nameFromPath(String path) {
-    final name = path.split('/').last.split('\\').last;
-    return name.replaceAll(RegExp(r'\.as$', caseSensitive: false), '');
   }
 }

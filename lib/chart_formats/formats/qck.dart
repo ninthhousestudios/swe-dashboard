@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../model/chart_data.dart';
 
@@ -8,8 +9,11 @@ import '../model/chart_data.dart';
 /// The de facto bulk interchange format — supported by Solar Fire,
 /// Astrolog, ZET, AstroConnexions, Janus, and others.
 class QckFormat {
-  static List<ChartData> readAll(String filePath) {
-    final lines = File(filePath).readAsLinesSync();
+  static List<ChartData> readAll(String filePath) =>
+      readAllBytes(File(filePath).readAsBytesSync());
+
+  static List<ChartData> readAllBytes(Uint8List bytes) {
+    final lines = String.fromCharCodes(bytes).split(RegExp(r'\r?\n'));
     return lines
         .where((l) => l.trim().isNotEmpty && l.length >= 62)
         .map(_parseLine)
@@ -17,10 +21,12 @@ class QckFormat {
         .toList();
   }
 
-  static ChartData read(String filePath) {
-    final charts = readAll(filePath);
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  static ChartData readBytes(Uint8List bytes) {
+    final charts = readAllBytes(bytes);
     if (charts.isEmpty) {
-      throw FormatException('No chart data found in $filePath');
+      throw const FormatException('No chart data found');
     }
     return charts.first;
   }

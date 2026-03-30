@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/calc_trigger.dart';
 import '../../core/display_format.dart';
+import '../../core/persistence.dart';
 import '../../widgets/result_card.dart';
 import 'houses_provider.dart';
 
@@ -57,6 +58,7 @@ class _HousesTabState extends ConsumerState<HousesTab> {
                       onChanged: (v) {
                         if (v != null) {
                           ref.read(selectedHouseSystemProvider.notifier).state = v;
+                          ref.read(persistenceProvider).saveHouseSystem(v);
                         }
                       },
                     ),

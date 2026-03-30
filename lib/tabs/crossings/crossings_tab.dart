@@ -22,8 +22,9 @@ class _CrossingsTabState extends ConsumerState<CrossingsTab> {
   @override
   void initState() {
     super.initState();
+    final lon = ref.read(crossingLonProvider);
     _lonController = TextEditingController(
-      text: ref.read(crossingLonProvider).toStringAsFixed(4),
+      text: lon == 0 ? '' : lon.toString(),
     );
   }
 
@@ -95,13 +96,13 @@ class _CrossingsTabState extends ConsumerState<CrossingsTab> {
                 Expanded(
                   child: TextField(
                     controller: _lonController,
-                    style: theme.textTheme.bodySmall,
+                    style: theme.textTheme.bodyLarge,
                     decoration: InputDecoration(
+                      hintText: '0',
                       suffixText: '°',
-                      isDense: true,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
+                          horizontal: 12, vertical: 10),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
                         decimal: true),

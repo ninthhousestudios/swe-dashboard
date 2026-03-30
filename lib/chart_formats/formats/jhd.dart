@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../model/chart_data.dart';
 
@@ -14,9 +15,11 @@ class JhdFormat {
     'Ketu',
   ];
 
-  static ChartData read(String filePath) {
-    final lines = File(filePath)
-        .readAsLinesSync()
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  static ChartData readBytes(Uint8List bytes) {
+    final lines = String.fromCharCodes(bytes)
+        .split(RegExp(r'\r?\n'))
         .map((l) => l.trim())
         .toList();
 
@@ -67,7 +70,7 @@ class JhdFormat {
     }
 
     return ChartData(
-      name: _nameFromPath(filePath),
+      name: 'Chart',
       dateTime: DateTime(year, month, day, hour, minute, second),
       birthLocation: GeoLocation(
         city: city,
@@ -132,10 +135,5 @@ class JhdFormat {
     sb.writeln(flags);
 
     File(filePath).writeAsStringSync(sb.toString());
-  }
-
-  static String _nameFromPath(String path) {
-    final name = path.split('/').last.split('\\').last;
-    return name.replaceAll(RegExp(r'\.jhd$', caseSensitive: false), '');
   }
 }

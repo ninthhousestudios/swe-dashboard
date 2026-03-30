@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:toml/toml.dart';
 
@@ -7,11 +8,13 @@ import '../model/chart_data.dart';
 /// TOML chart format — structured, human-readable format.
 /// Time stored as Julian Day number.
 class TomlChartFormat {
-  static ChartData read(String filePath) {
-    final content = File(filePath).readAsStringSync();
+  static ChartData read(String filePath) => readBytes(File(filePath).readAsBytesSync());
+
+  static ChartData readBytes(Uint8List bytes) {
+    final content = String.fromCharCodes(bytes);
     final doc = TomlDocument.parse(content);
     final map = doc.toMap();
-    return fromMap(map, filePath: filePath);
+    return fromMap(map, filePath: '');
   }
 
   static ChartData fromMap(Map<String, dynamic> map, {String? filePath}) {

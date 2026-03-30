@@ -16,6 +16,8 @@ class StarsTab extends ConsumerStatefulWidget {
 
 class _StarsTabState extends ConsumerState<StarsTab> {
   late final TextEditingController _searchController;
+  final _focusNode = FocusNode();
+  List<StarCatalogEntry> _suggestions = [];
 
   @override
   void initState() {
@@ -23,12 +25,44 @@ class _StarsTabState extends ConsumerState<StarsTab> {
     _searchController = TextEditingController(
       text: ref.read(starSearchProvider),
     );
+    _searchController.addListener(_onSearchChanged);
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        setState(() => _suggestions = []);
+      }
+    });
+    // Sync the text field to the provider whenever the global Calculate
+    // button fires, so the provider has the current text at calc time.
+    ref.listenManual(calcTriggerProvider, (_, _) {
+      final term = _searchController.text.trim();
+      if (term.isNotEmpty) {
+        ref.read(starSearchProvider.notifier).state = term;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final q = _searchController.text.trim();
+    if (q.isEmpty) {
+      setState(() => _suggestions = []);
+      return;
+    }
+    final lower = q.toLowerCase();
+    final bayerQ = lower.startsWith(',') ? lower.substring(1) : lower;
+    setState(() {
+      _suggestions = starCatalog.where((e) {
+        return e.commonName.toLowerCase().contains(lower) ||
+            e.bayerDesig.toLowerCase().contains(bayerQ);
+      }).toList();
+    });
   }
 
   void _calculate() {
@@ -36,12 +70,23 @@ class _StarsTabState extends ConsumerState<StarsTab> {
     if (term.isNotEmpty) {
       ref.read(starSearchProvider.notifier).state = term;
     }
+    setState(() => _suggestions = []);
     ref.read(calcTriggerProvider.notifier).state++;
+  }
+
+  void _selectSuggestion(StarCatalogEntry entry) {
+    _searchController.text = entry.commonName;
+    _searchController.selection = TextSelection.collapsed(
+      offset: entry.commonName.length,
+    );
+    ref.read(starSearchProvider.notifier).state = entry.commonName;
+    setState(() => _suggestions = []);
   }
 
   void _setStarPreset(String name) {
     _searchController.text = name;
     ref.read(starSearchProvider.notifier).state = name;
+    setState(() => _suggestions = []);
   }
 
   bool get _hasCalculated => ref.watch(calcTriggerProvider) > 0;
@@ -53,25 +98,58 @@ class _StarsTabState extends ConsumerState<StarsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Star name input row ──
+        // ── Star name input row with suggestions ──
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Row(
             children: [
               Text('Star ', style: theme.textTheme.labelLarge),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  style: theme.textTheme.bodySmall,
-                  decoration: const InputDecoration(
-                    hintText: 'Star name or catalog #',
-                    isDense: true,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    border: OutlineInputBorder(),
-                  ),
-                  onSubmitted: (_) => _calculate(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _searchController,
+                      focusNode: _focusNode,
+                      style: theme.textTheme.bodyLarge,
+                      decoration: const InputDecoration(
+                        hintText:
+                            'Star name or Bayer designation (e.g. Spica, alVir)',
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (_) => _calculate(),
+                    ),
+                    if (_suggestions.isNotEmpty)
+                      Material(
+                        elevation: 4,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: _suggestions.length,
+                            itemBuilder: (context, index) {
+                              final entry = _suggestions[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text(entry.commonName),
+                                trailing: Text(
+                                  entry.bayerDesig,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                onTap: () => _selectSuggestion(entry),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
