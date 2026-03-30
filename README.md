@@ -6,7 +6,7 @@ Every calculation the Swiss Ephemeris library can do, exposed through a tabbed i
 
 ## Features
 
-- **18 calculation tabs** — Planets, Houses, Ayanamsa, Rise/Set, Eclipses, Stars, Crossings, Table, Dates, Coordinates, Nodes/Apsides, Heliacal, Phenomena, Differential, Planetocentric, Math, Config
+- **18 calculation tabs** — Planets, Houses, Ayanamsa, Rise/Set, Eclipses, Stars, Crossings, Table, Dates, Coordinates, Nodes/Apsides, Heliacal, Phenomena, Differential, Planetocentric, Math, About
 - **Planet positions** — Sun through Pluto, nodes, Lilith, Chiron, Pholus, Uranian bodies, and any asteroid by MPC number. Ecliptic, equatorial, or Cartesian coordinates with speed values.
 - **Planetocentric** — View any body from any other body (e.g. Mars as seen from Jupiter) via `calcPctr`.
 - **House cusps** — 24 house systems including Placidus, Koch, Equal, Whole Sign, Campanus, Regiomontanus, Gauquelin (36 sectors), and more.
@@ -36,23 +36,23 @@ cd ephemeris-dashboard/
 
 ### macOS
 
-<!-- TODO: Test and fill in -->
+Download `eph-dashboard-macos.dmg` from [GitHub Releases](https://github.com/ninthhousestudios/swe-dashboard/releases), open the DMG, and drag **Ephemeris Dashboard** to your Applications folder. The app is signed and notarized — no Gatekeeper warnings.
 
 ### Windows
 
-<!-- TODO: Test and fill in -->
+Download `eph-dashboard-windows.zip` from [GitHub Releases](https://github.com/ninthhousestudios/swe-dashboard/releases), unzip, and double-click `ephemeris_dashboard.exe`.
 
 ### Android
 
-<!-- TODO: Test and fill in -->
+Download from [Google Play](https://play.google.com/store/apps/details?id=studio.ninthhouse.ephemeris_dashboard) (coming soon) or grab the APK from [GitHub Releases](https://github.com/ninthhousestudios/swe-dashboard/releases) and sideload it.
 
 ### iOS
 
-<!-- TODO: Test and fill in -->
+Coming soon to the [App Store](https://apps.apple.com). In the meantime, you can [build from source](#building-from-source) with Xcode.
 
 ### Web
 
-<!-- TODO: Test and fill in -->
+Try it at [ninthhouse.studio/swe-dashboard](https://ninthhouse.studio/swe-dashboard/) or download the static files from [GitHub Releases](https://github.com/ninthhousestudios/swe-dashboard/releases) and host on any web server. Edit `<base href="/">` in `index.html` if hosting at a subpath.
 
 ## Building from Source
 
