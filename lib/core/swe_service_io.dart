@@ -15,16 +15,16 @@ class NativeInitResult {
 /// Initialize ephemeris path and optionally preload SwissEph on native platforms.
 Future<NativeInitResult> initNativeEphePath() async {
   // --- Desktop release build: ephe/ near the executable ---
+  // macOS skipped here — it extracts to app support dir instead so .se1
+  // files live outside the signed app bundle (codesign rejects them).
   final exeDir = File(Platform.resolvedExecutable).parent.path;
-  // Linux/Windows: data/ephe next to exe
-  // macOS .app bundle: Resources/flutter_assets/assets/ephe/
-  for (final candidate in [
-    '$exeDir/data/ephe',
-    '$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/ephe',
-    '$exeDir/../Resources/flutter_assets/assets/ephe',
-  ]) {
-    if (_isValidEpheDir(candidate)) {
-      return NativeInitResult(ephePath: candidate);
+  if (!Platform.isMacOS) {
+    for (final candidate in [
+      '$exeDir/data/ephe',  // Linux/Windows
+    ]) {
+      if (_isValidEpheDir(candidate)) {
+        return NativeInitResult(ephePath: candidate);
+      }
     }
   }
 
@@ -49,8 +49,9 @@ Future<NativeInitResult> initNativeEphePath() async {
     }
   }
 
-  // --- Mobile (Android/iOS): extract assets to app support directory ---
-  if (Platform.isAndroid || Platform.isIOS) {
+  // --- Mobile + macOS: extract assets to app support directory ---
+  // macOS included here so .se1 files live outside the signed app bundle.
+  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
     final appDir = await getApplicationSupportDirectory();
     final epheDir = Directory('${appDir.path}/ephe');
 
