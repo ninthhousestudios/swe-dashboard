@@ -12,6 +12,7 @@
 .svn/
 .swiftpm/
 ios-error.md
+macos-error.md
 test/goldens/
 migrate_working_dir/
 

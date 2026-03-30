@@ -29,7 +29,9 @@ Future<NativeInitResult> initNativeEphePath() async {
   }
 
   // --- Desktop dev mode: find swisseph package in pub cache ---
-  if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+  // macOS skipped — it uses the asset-extraction path below (app sandbox
+  // blocks access to CWD/.dart_tool/ anyway).
+  if (Platform.isLinux || Platform.isWindows) {
     final pkgConfigPath = _findPackageConfig();
     if (pkgConfigPath != null) {
       final config =
