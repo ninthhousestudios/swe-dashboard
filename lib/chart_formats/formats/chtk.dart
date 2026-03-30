@@ -23,13 +23,16 @@ class ChtkFormat {
       lines.removeLast();
     }
 
+    if (lines.length < 13) {
+      throw FormatException('Invalid .chtk file: expected at least 13 lines, got ${lines.length}');
+    }
     final name = lines[0];
-    final year = int.parse(lines[1]);
-    final month = int.parse(lines[2]);
-    final day = int.parse(lines[3]);
-    final hour = int.parse(lines[4]);
-    final minute = int.parse(lines[5]);
-    final second = int.parse(lines[6]);
+    final year = int.tryParse(lines[1]) ?? 2000;
+    final month = int.tryParse(lines[2]) ?? 1;
+    final day = int.tryParse(lines[3]) ?? 1;
+    final hour = int.tryParse(lines[4]) ?? 0;
+    final minute = int.tryParse(lines[5]) ?? 0;
+    final second = int.tryParse(lines[6]) ?? 0;
     final genderCode = int.tryParse(lines[7]) ?? 0;
     final country = lines[8];
     final city = lines[9];
@@ -65,7 +68,7 @@ class ChtkFormat {
     // After muhurtas: current location block
     GeoLocation? currentLoc;
     double? currentUtcOffset;
-    if (idx + 5 < lines.length) {
+    if (idx + 6 < lines.length) {
       idx++; // muhurta count
       idx++; // location preset name
       final curCountry = idx < lines.length ? lines[idx++] : '';
@@ -190,6 +193,7 @@ class ChtkFormat {
   static double _parseUtcOffset(String s) {
     s = s.trim();
     if (s == 'UTC' || s == '0') return 0.0;
+    // Kala stores offsets with inverted sign: "-05:30:00" means UTC+5:30.
     final negative = s.startsWith('-');
     s = s.replaceFirst(RegExp(r'^[+-]'), '');
     final parts = s.split(':');
@@ -201,11 +205,12 @@ class ChtkFormat {
 
   static String _formatUtcOffset(double hours) {
     if (hours == 0) return 'UTC';
-    final neg = hours > 0;
+    // Invert sign back to Kala convention: UTC+5 → "-05:00:00".
     final abs = hours.abs();
+    final sign = hours > 0 ? '-' : '';
     final h = abs.floor();
     final m = ((abs - h) * 60).round();
-    return '${neg ? '-' : ''}${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:00';
+    return '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:00';
   }
 
   static String _decodeUtf16Le(Uint8List bytes) {

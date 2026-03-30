@@ -117,7 +117,8 @@ class QckFormat {
     final timeFlag = ' ';
 
     final tz = -c.utcOffsetHours;
-    final tzStr = tz.toInt().toString().padLeft(3);
+    // QCK format only supports integer timezone offsets; round to nearest hour.
+    final tzStr = tz.round().toString().padLeft(3);
     final tzExtra = ' ';
 
     final latAbs = loc.latitude.abs();

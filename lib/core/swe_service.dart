@@ -34,6 +34,9 @@ Future<void> initSweEphePath() async {
   _preloadedSwe = result.swe;
 }
 
+/// Whether .se1 ephemeris files were found at startup.
+bool get hasEpheFiles => _ephePath != null;
+
 final sweProvider = Provider<SwissEph>((ref) {
   final swe = _preloadedSwe ?? io.createDesktopSwissEph();
   if (_ephePath != null) {

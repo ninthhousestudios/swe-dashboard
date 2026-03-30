@@ -109,12 +109,22 @@ class ResultCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.copy, size: 18),
                   tooltip: 'Copy to clipboard',
-                  onPressed: () {
+                  onPressed: () async {
                     final text = fields.map((f) => '${f.label}: ${f.value}').join('\n');
-                    Clipboard.setData(ClipboardData(text: '$title\n$text'));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
-                    );
+                    try {
+                      await Clipboard.setData(ClipboardData(text: '$title\n$text'));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copy failed'), duration: Duration(seconds: 1)),
+                        );
+                      }
+                    }
                   },
                 ),
                 IconButton(

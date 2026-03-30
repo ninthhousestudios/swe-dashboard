@@ -57,7 +57,14 @@ Future<NativeInitResult> initNativeEphePath() async {
     final appDir = await getApplicationSupportDirectory();
     final epheDir = Directory('${appDir.path}/ephe');
 
-    if (!_isValidEpheDir(epheDir.path)) {
+    // Re-extract if directory is missing, empty, or from a different version.
+    const epheVersion = '0.4.3'; // bump when swisseph dependency changes
+    final versionFile = File('${epheDir.path}/.version');
+    final needsExtract = !_isValidEpheDir(epheDir.path) ||
+        !versionFile.existsSync() ||
+        versionFile.readAsStringSync().trim() != epheVersion;
+
+    if (needsExtract) {
       await epheDir.create(recursive: true);
       final epheFiles = await _listEpheAssets();
 
@@ -69,16 +76,15 @@ Future<NativeInitResult> initNativeEphePath() async {
           flush: true,
         );
       }
+      await versionFile.writeAsString(epheVersion, flush: true);
     }
 
     final swe = _loadNativeLibrary();
     return NativeInitResult(ephePath: epheDir.path, swe: swe);
   }
 
-  throw StateError(
-    'Swiss Ephemeris data files not found. '
-    'The app cannot run without .se1 files.',
-  );
+  // No ephe files found — Moshier analytical ephemeris will be used.
+  return const NativeInitResult();
 }
 
 /// Create a SwissEph instance for desktop (release bundle or dev mode).
@@ -122,8 +128,11 @@ SwissEph _loadNativeLibrary() {
   }
 
   // --- Try bare library name (works if native assets embedded it) ---
-  final bareName =
-      Platform.isWindows ? 'swisseph.dll' : 'libswisseph.dylib';
+  final bareName = Platform.isWindows
+      ? 'swisseph.dll'
+      : Platform.isLinux
+          ? 'libswisseph.so'
+          : 'libswisseph.dylib';
   try {
     return SwissEph(bareName);
   } catch (_) {}
@@ -188,9 +197,13 @@ String? _findLibraryInDartTool() {
 }
 
 bool _isValidEpheDir(String path) {
-  final dir = Directory(path);
-  if (!dir.existsSync()) return false;
-  return dir.listSync().any((e) => e.path.endsWith('.se1'));
+  try {
+    final dir = Directory(path);
+    if (!dir.existsSync()) return false;
+    return dir.listSync().any((e) => e.path.endsWith('.se1'));
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<List<String>> _listEpheAssets() async {

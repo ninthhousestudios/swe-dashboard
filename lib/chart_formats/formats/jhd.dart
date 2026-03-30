@@ -23,21 +23,24 @@ class JhdFormat {
         .map((l) => l.trim())
         .toList();
 
-    final month = int.parse(lines[0]);
-    final day = int.parse(lines[1]);
-    final year = int.parse(lines[2]);
-    final decimalTime = double.parse(lines[3]);
+    if (lines.length < 9) {
+      throw FormatException('Invalid .jhd file: expected at least 9 lines, got ${lines.length}');
+    }
+    final month = int.tryParse(lines[0]) ?? 1;
+    final day = int.tryParse(lines[1]) ?? 1;
+    final year = int.tryParse(lines[2]) ?? 2000;
+    final decimalTime = double.tryParse(lines[3]) ?? 0.0;
     final hour = decimalTime.floor();
     final minute = ((decimalTime - hour) * 60).round();
     final second =
         (((decimalTime - hour) * 60 - minute) * 60).round().clamp(0, 59);
 
-    final rawOffset = double.parse(lines[4]);
+    final rawOffset = double.tryParse(lines[4]) ?? 0.0;
     final utcOffset = -rawOffset;
-    final rawLon = double.parse(lines[5]);
+    final rawLon = double.tryParse(lines[5]) ?? 0.0;
     final longitude = -rawLon;
-    final latitude = double.parse(lines[6]);
-    final dstOffset = double.parse(lines[7]);
+    final latitude = double.tryParse(lines[6]) ?? 0.0;
+    final dstOffset = double.tryParse(lines[7]) ?? 0.0;
 
     List<PlanetPosition>? planets;
     String city = '';
@@ -101,8 +104,10 @@ class JhdFormat {
       }
       sb.writeln(chart.planets!.map((p) => p.retrograde ? '1' : '0').join());
     } else {
-      sb.writeln((-chart.utcOffsetHours).toStringAsFixed(6));
-      sb.writeln((-chart.utcOffsetHours).toStringAsFixed(6));
+      // Variant B (input-only): write small placeholder values that won't
+      // trigger variant-A detection (line8.abs() > 10.0).
+      sb.writeln('0.000000');
+      sb.writeln('0.000000');
       sb.writeln('0');
       sb.writeln('0');
     }

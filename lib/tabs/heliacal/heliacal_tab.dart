@@ -541,14 +541,16 @@ String _jdToDateStr(double jd, SwissEph swe, double utcOffset) {
   try {
     final r = swe.revjul(jd);
     final t = r.hour;
-    final h = t.truncate();
+    var h = t.truncate();
     final m = ((t - h) * 60).truncate();
-    final utStr = '${r.year}-${r.month.toString().padLeft(2, '0')}-'
-        '${r.day.toString().padLeft(2, '0')} '
-        '${h.toString().padLeft(2, '0')}:'
-        '${m.toString().padLeft(2, '0')} UT';
+    // Handle midnight carry: swisseph can return hour == 24.0
+    var utcDt = DateTime.utc(r.year, r.month, r.day);
+    utcDt = utcDt.add(Duration(hours: h, minutes: m));
+    final utStr = '${utcDt.year}-${utcDt.month.toString().padLeft(2, '0')}-'
+        '${utcDt.day.toString().padLeft(2, '0')} '
+        '${utcDt.hour.toString().padLeft(2, '0')}:'
+        '${utcDt.minute.toString().padLeft(2, '0')} UT';
     if (utcOffset == 0.0) return utStr;
-    final utcDt = DateTime.utc(r.year, r.month, r.day, h, m);
     final totalMinutes = (utcOffset * 60).round();
     final local = utcDt.add(Duration(minutes: totalMinutes));
     final sign = utcOffset >= 0 ? '+' : '';

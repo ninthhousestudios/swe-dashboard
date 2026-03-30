@@ -1,4 +1,4 @@
-package studio.ninthhouse.swe_dashboard
+package studio.ninthhouse.ephemeris_dashboard
 
 import io.flutter.embedding.android.FlutterActivity
 

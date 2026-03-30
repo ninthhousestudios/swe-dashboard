@@ -23,7 +23,9 @@ class JdUtils {
     final m = minuteFrac.truncate();
     final secondFrac = (minuteFrac - m) * 60.0;
     final s = secondFrac.truncate();
-    final ms = ((secondFrac - s) * 1000).round();
+    var ms = ((secondFrac - s) * 1000).round();
+    // Clamp to avoid invalid DateTime when rounding pushes ms to 1000.
+    if (ms >= 1000) ms = 999;
     return DateTime.utc(result.year, result.month, result.day, h, m, s, ms);
   }
 

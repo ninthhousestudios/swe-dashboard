@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "studio.ninthhouse.swe_dashboard"
+    namespace = "studio.ninthhouse.ephemeris_dashboard"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "studio.ninthhouse.swe_dashboard"
+        applicationId = "studio.ninthhouse.ephemeris_dashboard"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

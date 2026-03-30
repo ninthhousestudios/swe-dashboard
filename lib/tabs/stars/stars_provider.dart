@@ -99,7 +99,7 @@ const starCatalog = [
   StarCatalogEntry('Toliman', 'al2Cen'),
   StarCatalogEntry('Agena', 'beCen'),
   StarCatalogEntry('Kochab', 'beUMi'),
-  StarCatalogEntry('Eltanin', 'gaaDra'),
+  StarCatalogEntry('Eltanin', 'gaDra'),
   StarCatalogEntry('Thuban', 'alDra'),
   StarCatalogEntry('Enif', 'epPeg'),
   StarCatalogEntry('Sadalmelik', 'alAqr'),
@@ -129,7 +129,7 @@ const starCatalog = [
   StarCatalogEntry('Navi', 'gaCas'),
   StarCatalogEntry('Peacock', 'alPav'),
   StarCatalogEntry('Alnair', 'alGru'),
-  StarCatalogEntry('Formalhaut', 'alPsA'),
+  // Fomalhaut already in commonStars — removed duplicate (was misspelled "Formalhaut")
   StarCatalogEntry('Al Niyat', 'si1Sco'),
   StarCatalogEntry('Gal. Center', 'SgrA*'),
 ];

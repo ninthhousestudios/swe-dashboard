@@ -1,12 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:swe_dashboard/core/calc_trigger.dart';
 import 'package:swe_dashboard/core/display_format.dart';
-import 'package:swe_dashboard/core/swe_service.dart';
 import 'package:swe_dashboard/tabs/ayanamsa/ayanamsa_provider.dart';
 import 'package:swe_dashboard/tabs/houses/houses_provider.dart';
 import 'package:swe_dashboard/tabs/planets/planets_provider.dart';

@@ -116,7 +116,7 @@ class AafFormat {
     sb.writeln('#A93:$lastName,$firstName,$sex');
 
     final dt = chart.dateTime;
-    final dateStr = '${dt.day}.${dt.month}.${dt.year}';
+    final dateStr = '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
     final timeStr =
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     final tzStr = _formatAafTimezone(chart.utcOffsetHours);

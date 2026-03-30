@@ -84,7 +84,7 @@ class ChartData {
       utcOffsetHours: (json['utc_offset'] as num?)?.toDouble() ?? 0.0,
       dstOffsetHours: (json['dst_offset'] as num?)?.toDouble() ?? 0.0,
       gender: json['gender'] != null
-          ? Gender.values.byName(json['gender'] as String)
+          ? _parseGender(json['gender'] as String)
           : null,
       notes: json['notes'] as String?,
       roddenRating: json['rodden_rating'] as String?,
@@ -106,6 +106,13 @@ class ChartData {
 }
 
 String _p2(int n) => n.toString().padLeft(2, '0');
+
+Gender? _parseGender(String value) {
+  for (final g in Gender.values) {
+    if (g.name == value) return g;
+  }
+  return null;
+}
 
 enum Gender { male, female, unknown }
 

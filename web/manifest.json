@@ -1,11 +1,11 @@
 {
-    "name": "swe_dashboard",
-    "short_name": "swe_dashboard",
+    "name": "Ephemeris Dashboard",
+    "short_name": "SWE Dashboard",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Swiss Ephemeris calculation dashboard.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

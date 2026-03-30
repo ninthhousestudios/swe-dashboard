@@ -5,8 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../chart_formats/chart_io.dart';
+import '../../chart_formats/model/chart_data.dart';
 import '../../core/context_provider.dart';
-import '../chart-file-dialog.dart';
+import '../chart_file_dialog.dart';
 import '../../core/jd_utils.dart';
 import '../../core/swe_service.dart';
 import '../../layout/responsive_layout.dart';
@@ -240,14 +241,27 @@ class _ContextBarState extends ConsumerState<ContextBar> {
     var h = initialHour;
     var m = initialMinute;
     var s = initialSecond;
+    final hCtrl = TextEditingController(text: h.toString().padLeft(2, '0'));
+    final mCtrl = TextEditingController(text: m.toString().padLeft(2, '0'));
+    final sCtrl = TextEditingController(text: s.toString().padLeft(2, '0'));
     return showDialog<(int, int, int)>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
           final spinnerStyle = Theme.of(ctx).textTheme.headlineSmall?.copyWith(fontFamily: 'monospace');
-          final colonStyle = Theme.of(ctx).textTheme.headlineSmall?.copyWith(fontFamily: 'monospace');
 
-          Widget spinner(String label, int value, int max, ValueChanged<int> onChanged) {
+          void updateCtrl(TextEditingController ctrl, int value) {
+            final text = value.toString().padLeft(2, '0');
+            if (ctrl.text != text) {
+              ctrl.text = text;
+              ctrl.selection = TextSelection.collapsed(offset: text.length);
+            }
+          }
+          updateCtrl(hCtrl, h);
+          updateCtrl(mCtrl, m);
+          updateCtrl(sCtrl, s);
+
+          Widget spinner(String label, int value, int max, ValueChanged<int> onChanged, TextEditingController ctrl) {
             return IntrinsicWidth(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -259,7 +273,7 @@ class _ContextBarState extends ConsumerState<ContextBar> {
                     onPressed: () => setState(() => onChanged((value + 1) % (max + 1))),
                   ),
                   TextField(
-                    controller: TextEditingController(text: value.toString().padLeft(2, '0')),
+                    controller: ctrl,
                     textAlign: TextAlign.center,
                     style: spinnerStyle,
                     decoration: const InputDecoration(
@@ -293,17 +307,17 @@ class _ContextBarState extends ConsumerState<ContextBar> {
             content: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                spinner('Hour', h, 23, (v) => h = v),
+                spinner('Hour', h, 23, (v) => h = v, hCtrl),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(':', style: colonStyle),
+                  child: Text(':', style: spinnerStyle),
                 ),
-                spinner('Min', m, 59, (v) => m = v),
+                spinner('Min', m, 59, (v) => m = v, mCtrl),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(':', style: colonStyle),
+                  child: Text(':', style: spinnerStyle),
                 ),
-                spinner('Sec', s, 59, (v) => s = v),
+                spinner('Sec', s, 59, (v) => s = v, sCtrl),
               ],
             ),
             actions: [
@@ -470,14 +484,18 @@ class _ContextBarState extends ConsumerState<ContextBar> {
       );
       if (result == null || !mounted) return;
       final file = result.files.single;
-      if (file.bytes == null) {
+      ChartData chart;
+      if (file.bytes != null) {
+        chart = ChartIO.readBytes(file.bytes!, file.name);
+      } else if (file.path != null) {
+        chart = ChartIO.read(file.path!);
+      } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not read file data')),
         );
         return;
       }
-      final chart = ChartIO.readBytes(file.bytes!, file.name);
       ref.read(contextBarProvider.notifier).loadFromChart(chart);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

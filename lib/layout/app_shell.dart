@@ -434,15 +434,16 @@ class _MobileTabBarState extends State<_MobileTabBar> {
   void didUpdateWidget(_MobileTabBar old) {
     super.didUpdateWidget(old);
     if (old.selectedTab != widget.selectedTab) {
-      _scrollToSelected();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
     }
   }
 
   void _scrollToSelected() {
     final idx = AppTab.values.indexOf(widget.selectedTab);
     if (idx < 0 || !_scrollController.hasClients) return;
-    // Each item is ~72px wide; scroll to center it
-    const itemWidth = 72.0;
+    // Each item is ~72px wide; scale with zoom
+    final scale = MediaQuery.textScalerOf(context).scale(1.0);
+    final itemWidth = 72.0 * scale;
     final viewWidth = _scrollController.position.viewportDimension;
     final target = (idx * itemWidth - viewWidth / 2 + itemWidth / 2)
         .clamp(0.0, _scrollController.position.maxScrollExtent);
