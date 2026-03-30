@@ -1,6 +1,6 @@
 {
     "name": "Ephemeris Dashboard",
-    "short_name": "SWE Dashboard",
+    "short_name": "Ephemeris Dashboard",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
