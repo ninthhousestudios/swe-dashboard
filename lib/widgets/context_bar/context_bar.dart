@@ -524,7 +524,7 @@ class _ContextBarState extends ConsumerState<ContextBar> {
     if (_date.text.isEmpty) _sync();
 
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final isMobile = screenWidth < 600;
+    final isMobile = screenWidth < 1024;
 
     return Container(
       width: double.infinity,
