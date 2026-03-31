@@ -17,6 +17,7 @@ macos-error.md
 test/goldens/
 migrate_working_dir/
 release/
+xcode-warnings/
 
 # IntelliJ related
 *.iml
