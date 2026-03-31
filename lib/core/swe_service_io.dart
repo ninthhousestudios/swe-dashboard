@@ -20,7 +20,8 @@ Future<NativeInitResult> initNativeEphePath() async {
   final exeDir = File(Platform.resolvedExecutable).parent.path;
   if (!Platform.isMacOS) {
     for (final candidate in [
-      '$exeDir/data/ephe',  // Linux/Windows
+      '$exeDir/data/ephe', // CMake-installed bundle
+      '$exeDir/data/flutter_assets/assets/ephe', // Flutter asset bundle
     ]) {
       if (_isValidEpheDir(candidate)) {
         return NativeInitResult(ephePath: candidate);
