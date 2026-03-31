@@ -116,7 +116,18 @@ foreach(_i RANGE 0 ${_PKG_LAST})
   string(JSON _NAME GET "${_PKG_JSON}" "packages" ${_i} "name")
   if("${_NAME}" STREQUAL "swisseph")
     string(JSON _ROOT_URI GET "${_PKG_JSON}" "packages" ${_i} "rootUri")
-    string(REPLACE "file://" "" _PKG_ROOT "${_ROOT_URI}")
+    # Convert file:// URI to a native path.
+    # On Windows, rootUri is "file:///C:/Users/..." — stripping "file://"
+    # leaves "/C:/..." which is invalid.  Use cmake's file(TO_CMAKE_PATH ...)
+    # after removing the scheme to normalise it.
+    string(REPLACE "file://" "" _PKG_ROOT_RAW "${_ROOT_URI}")
+    file(TO_CMAKE_PATH "${_PKG_ROOT_RAW}" _PKG_ROOT_CMAKE)
+    # On Windows, strip the leading "/" before the drive letter (e.g. "/C:/…" → "C:/…").
+    if(WIN32)
+      string(REGEX REPLACE "^/([A-Za-z]:)" "\\1" _PKG_ROOT "${_PKG_ROOT_CMAKE}")
+    else()
+      set(_PKG_ROOT "${_PKG_ROOT_CMAKE}")
+    endif()
     set(SWISSEPH_EPHE_DIR "${_PKG_ROOT}/ephe")
     break()
   endif()
