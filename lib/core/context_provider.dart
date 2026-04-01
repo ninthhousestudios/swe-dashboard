@@ -57,7 +57,9 @@ class ContextBarNotifier extends StateNotifier<ContextBarState> {
       zodiacRef: overrides['zodiacRef'] as ZodiacRef?,
       eqRef: overrides['eqRef'] as EqRef?,
       ayanamsa: overrides['ayanamsa'] as int?,
-      epheSource: overrides['epheSource'] as EpheSource?,
+      epheSource: hasEpheFiles
+          ? overrides['epheSource'] as EpheSource?
+          : EpheSource.moshier,
       utcOffset: overrides['utcOffset'] as double?,
     );
   }
@@ -129,7 +131,9 @@ class ContextBarNotifier extends StateNotifier<ContextBarState> {
   }
 
   void setEpheSource(EpheSource source) {
-    state = state.copyWith(epheSource: source);
+    // Force Moshier when no ephemeris files are available (e.g. web).
+    final effective = hasEpheFiles ? source : EpheSource.moshier;
+    state = state.copyWith(epheSource: effective);
     _save();
   }
 

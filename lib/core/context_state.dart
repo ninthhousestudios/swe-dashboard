@@ -16,7 +16,7 @@ class ContextBarState {
     this.zodiacRef = ZodiacRef.tropical,
     this.eqRef = EqRef.trueEquinox,
     this.ayanamsa = -1, // -1 = none; 0+ = SE_SIDM_* constant (only meaningful when sidereal)
-    this.epheSource = EpheSource.swissEph,
+    this.epheSource = EpheSource.moshier,
   });
 
   final DateTime dateTime;

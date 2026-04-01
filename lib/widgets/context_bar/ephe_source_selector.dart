@@ -14,15 +14,18 @@ class EpheSourceSelector extends ConsumerWidget {
     final source =
         ref.watch(contextBarProvider.select((s) => s.epheSource));
     final noFiles = !hasEpheFiles;
-    final showWarning = noFiles && source != EpheSource.moshier;
+
+    // When no ephemeris files exist, force Moshier and disable the dropdown.
+    final effectiveSource = noFiles ? EpheSource.moshier : source;
 
     return LabeledDropdown<EpheSource>(
-      label: showWarning ? 'Ephe (no .se1 files — using Moshier)' : 'Ephe',
-      value: source,
-      items: EpheSource.values,
+      label: noFiles ? 'Ephe (Moshier only)' : 'Ephe',
+      value: effectiveSource,
+      items: noFiles ? [EpheSource.moshier] : EpheSource.values,
       itemLabel: (s) => s.label,
-      onChanged: (v) =>
-          ref.read(contextBarProvider.notifier).setEpheSource(v),
+      onChanged: noFiles
+          ? null
+          : (v) => ref.read(contextBarProvider.notifier).setEpheSource(v),
     );
   }
 }

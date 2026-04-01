@@ -16,7 +16,7 @@ class LabeledDropdown<T> extends StatelessWidget {
   final T value;
   final List<T> items;
   final String Function(T) itemLabel;
-  final ValueChanged<T> onChanged;
+  final ValueChanged<T>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -45,9 +45,11 @@ class LabeledDropdown<T> extends StatelessWidget {
                     .map((v) => DropdownMenuItem(
                         value: v, child: Text(itemLabel(v))))
                     .toList(),
-                onChanged: (v) {
-                  if (v != null) onChanged(v);
-                },
+                onChanged: onChanged == null
+                    ? null
+                    : (v) {
+                        if (v != null) onChanged!(v);
+                      },
               ),
             ),
           ),
